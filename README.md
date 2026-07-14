@@ -4,6 +4,15 @@ A simple desktop wallet for [BrowserCoin](https://browsercoin.org) (BRC) — sen
 
 platform: Windows · macOS · Linux (Electron) · license: MIT
 
+> **⚠️ Experimental software — use at your own risk.** This is an independent,
+> unofficial wallet built for an experimental cryptocurrency with no fiat
+> market and no guaranteed value. It has not been professionally audited.
+> Don't rely on it for anything you can't afford to lose, and don't store
+> more than "fun money" amounts in it. Always keep a backup of your wallet
+> file (see [Backing up your wallet](#backing-up-your-wallet)) — if you lose
+> both the file and its private key, the funds are gone permanently, with no
+> recovery possible.
+
 ## Why
 
 BrowserCoin's own wallet lives in a browser tab and needs a JSON file for backup/restore. BRC Wallet gives you the same address and keys in a standalone desktop app: create or import a wallet, check your balance, and send BRC — all without a browser open.
@@ -57,6 +66,8 @@ npm run dist
 Produces a Windows installer (`.exe`) in `dist/`. (Requires the `win` build target configured in `package.json`; adjust for macOS/Linux if needed.)
 
 ## Security notes
+
+**Use at your own risk** — this software is provided as-is, with no warranty of any kind (see [License](#license)).
 
 - The private key is held in memory only while the app is running and is cleared when the app closes.
 - Wallet files, settings, and the transaction cache are written with restrictive file permissions (owner-only).
