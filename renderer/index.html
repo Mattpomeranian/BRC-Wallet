@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'" />
+<title>BRC Wallet</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <div id="screen-empty" class="screen">
+    <h1>BRC Wallet</h1>
+    <p class="muted">No wallet loaded.</p>
+    <button id="btn-create">Create a new wallet</button>
+    <button id="btn-import">Import a wallet (JSON)</button>
+  </div>
+
+  <div id="screen-wallet" class="screen hidden">
+    <h1>BRC Wallet</h1>
+
+    <div class="tab-nav">
+      <button class="tab-btn active" data-tab="overview">Overview</button>
+      <button class="tab-btn" data-tab="send">Send</button>
+      <button class="tab-btn" data-tab="history">History</button>
+      <button class="tab-btn" data-tab="settings">Settings</button>
+    </div>
+
+    <div id="tab-overview" class="tab-panel">
+      <div class="card">
+        <div class="label">Address</div>
+        <div class="address" id="wallet-address">-</div>
+        <button id="btn-copy-address" class="small">Copy</button>
+        <button id="btn-export" class="small">Export</button>
+        <button id="btn-toggle-qr" class="small">Show QR</button>
+        <div id="qr-wrap" class="qr-wrap hidden">
+          <img id="qr-code" alt="Address QR code" width="220" height="220" />
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="label">Balance</div>
+        <div class="balance" id="wallet-balance">-</div>
+        <div class="muted small-text" id="sync-status">Not synced</div>
+        <button id="btn-sync">Sync</button>
+        <label class="checkbox-label">
+          <input type="checkbox" id="auto-sync-toggle" checked />
+          Auto-sync every 60s
+        </label>
+      </div>
+
+      <div class="donate">
+        <button id="btn-donate" class="small">☕ Support this project</button>
+      </div>
+    </div>
+
+    <div id="tab-send" class="tab-panel hidden">
+      <div class="card">
+        <div class="label">Send BRC</div>
+        <label for="send-to">Recipient address</label>
+        <input id="send-to" type="text" placeholder="64 hex characters" />
+        <label for="send-amount">Amount (BRC)</label>
+        <input id="send-amount" type="text" placeholder="0.00000000" />
+        <label for="send-fee">Fee (BRC, optional — minimum applied otherwise)</label>
+        <input id="send-fee" type="text" placeholder="0.00000152" />
+        <button id="btn-send">Send</button>
+        <div id="send-result" class="small-text"></div>
+      </div>
+    </div>
+
+    <div id="tab-history" class="tab-panel hidden">
+      <div class="card">
+        <div class="label">Transaction history</div>
+        <div id="history-list" class="history-list">
+          <div class="muted small-text">Sync to load history.</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="tab-settings" class="tab-panel hidden">
+      <div class="card">
+        <div class="label">Helper server</div>
+        <select id="api-url-select">
+          <option value="https://api1.browsercoin.org">api1.browsercoin.org</option>
+          <option value="https://api2.browsercoin.org">api2.browsercoin.org</option>
+          <option value="https://api1.taitech.eu">api1.taitech.eu</option>
+          <option value="custom">Custom URL…</option>
+        </select>
+        <label for="api-url">URL</label>
+        <input id="api-url" type="text" placeholder="https://api1.browsercoin.org" />
+        <button id="btn-save-url" class="small">Save</button>
+        <div class="muted small-text">If one server is down, pick another from the list above and save.</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-overlay" class="hidden">
+    <div class="modal">
+      <div class="modal-title" id="modal-title">Title</div>
+      <div class="modal-message" id="modal-message"></div>
+      <input id="modal-input" type="password" class="hidden" />
+      <div class="modal-buttons">
+        <button id="modal-cancel" class="small">Cancel</button>
+        <button id="modal-ok" class="small primary">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>

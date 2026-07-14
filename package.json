@@ -1,0 +1,32 @@
+{
+  "name": "brc-wallet",
+  "version": "0.1.0",
+  "description": "Simple desktop wallet for BrowserCoin (BRC)",
+  "main": "main.js",
+  "author": "Matthieu",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win"
+  },
+  "devDependencies": {
+    "electron": "^43.1.0",
+    "electron-builder": "^26.15.3"
+  },
+  "dependencies": {
+    "qrcode-generator": "^2.0.4"
+  },
+  "build": {
+    "appId": "ch.matthieu.brcwallet",
+    "productName": "BRC Wallet",
+    "win": {
+      "target": "nsis"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "src/**/*",
+      "renderer/**/*"
+    ]
+  }
+}
