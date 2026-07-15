@@ -410,7 +410,7 @@ function setupTabs() {
     if (
       el.sidebar.classList.contains('expanded') &&
       !el.sidebar.contains(e.target) &&
-      e.target !== el.sidebarToggle
+      !el.sidebarToggle.contains(e.target)
     ) {
       collapseSidebar();
     }
