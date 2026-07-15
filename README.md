@@ -1,3 +1,5 @@
+<p align="center"><img src="build/icon.png" width="120" height="120" alt="BRC Wallet logo" /></p>
+
 # BRC Wallet
 
 A simple desktop wallet for [BrowserCoin](https://browsercoin.org) (BRC) — send, receive, and manage your BRC without opening a browser tab.

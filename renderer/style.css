@@ -483,6 +483,20 @@ button.danger:hover { background: var(--danger-hover-bg); }
   color: var(--text-dim);
 }
 
+.owl-watermark {
+  display: flex;
+  justify-content: center;
+  margin-top: 28px;
+  pointer-events: none;
+  user-select: none;
+}
+
+.owl-watermark img {
+  width: 72px;
+  height: 72px;
+  opacity: 0.1;
+}
+
 .qr-wrap {
   margin-top: 12px;
   text-align: center;
