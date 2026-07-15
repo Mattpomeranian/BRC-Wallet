@@ -3,13 +3,33 @@
 const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
-const qrcode = require('qrcode-generator');
 
-const wallet = require('./src/wallet');
-const { Store } = require('./src/store');
-const { syncAddress } = require('./src/sync');
-const { buildSignedTx, brcToWei, weiToBrc } = require('./src/tx');
-const { submitTx } = require('./src/api');
+let qrcode, wallet, Store, syncAddress, buildSignedTx, brcToWei, weiToBrc, submitTx;
+try {
+  qrcode = require('qrcode-generator');
+  wallet = require('./src/wallet');
+  ({ Store } = require('./src/store'));
+  ({ syncAddress } = require('./src/sync'));
+  ({ buildSignedTx, brcToWei, weiToBrc } = require('./src/tx'));
+  ({ submitTx } = require('./src/api'));
+} catch (err) {
+  // A raw Node "Cannot find module" crash here looks like the app itself is
+  // broken. It's almost always just node_modules being stale after a
+  // package.json change -- catch it and say so directly instead of letting
+  // Electron show its default uncaught-exception dialog with a stack trace.
+  app.whenReady().then(() => {
+    dialog.showErrorBox(
+      'BRC Wallet failed to start',
+      `A required file could not be loaded:\n${err.message}\n\n` +
+      `This almost always means dependencies need to be installed or reinstalled. ` +
+      `Close this window, open a terminal in the app folder, and run:\n\n` +
+      `    npm install\n\n` +
+      `Then start the app again.`
+    );
+    app.quit();
+  });
+  return;
+}
 
 const GITHUB_REPO = 'Mattpomeranian/BRC-Wallet';
 const AUTO_SYNC_INTERVALS_MS = [30000, 60000, 120000, 300000];
