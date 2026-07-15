@@ -72,9 +72,7 @@ npm run dist
 
 Produces a Windows installer (`.exe`) in `dist/`. (Requires the `win` build target configured in `package.json`; adjust for macOS/Linux if needed.)
 
-### Publishing an update
-
-The in-app **Check for updates** button compares your version against this repo's [GitHub Releases](https://github.com/Mattpomeranian/BRC-Wallet/releases) — it won't find anything until a release actually exists. To publish one: bump `version` in `package.json`, run `npm run dist`, then create a GitHub Release with a matching tag (e.g. `v0.5.0`) and attach the built installer from `dist/`. The app only checks and links to the release page — it doesn't download or install anything automatically.
+The in-app **Check for updates** button (Settings tab) compares your version against this repo's GitHub Releases and links to the release page if one is newer — it never downloads or installs anything automatically. See [MAINTAINING.md](MAINTAINING.md) for how releases get published.
 
 ## Security notes
 
@@ -90,7 +88,7 @@ The in-app **Check for updates** button compares your version against this repo'
 - **"Cannot find module ..." on startup** — run `npm install` again; a dependency was likely added or updated.
 - **Sync fails with a 429 error** — the app already retries automatically with backoff, so this only surfaces if every retry is exhausted. Wait a moment, or pick a different helper server from the dropdown in Settings.
 - **"No wallet loaded"** — you'll land here on first launch, or if the app couldn't find your last wallet file. Create a new one, import your backup, or click the app title to reopen a wallet from the switcher if you've used it before.
-- **"Check for updates" says no releases / rate-limited** — expected until a release is actually published on GitHub (see [Publishing an update](#publishing-an-update)); a rate-limit message means GitHub is temporarily throttling the check, not an app problem — try again shortly.
+- **"Check for updates" says no releases / rate-limited** — expected until a release is actually published on GitHub (see [MAINTAINING.md](MAINTAINING.md) if you're the maintainer); a rate-limit message means GitHub is temporarily throttling the check, not an app problem — try again shortly.
 
 ## Credits
 
