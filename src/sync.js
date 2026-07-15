@@ -8,7 +8,7 @@
 //
 // Trust note: this trusts the helper server's block CONTENTS as-is for both
 // proof-of-work and the txRoot/stateRoot Merkle commitments. A PoW check
-// (Argon2id, src/pow.js) was implemented and tested but had to be reverted
+// (Argon2id) was implemented and tested but had to be reverted and removed
 // -- see the comment at the applyBlock() call site below for why. What this
 // DOES verify: chain continuity (each block's declared height must be
 // exactly one more than the last, and its prevHash must match the hash of
@@ -117,7 +117,8 @@ async function syncAddress(baseUrl, address, cachedState, onProgress) {
       // legitimate blocks is worse than not checking at all, so this is
       // disabled until the real construction can be confirmed against
       // ground truth (e.g. by getting the source from the BrowserCoin repo
-      // or maintainer). pow.js is left in place for that future work.
+      // or maintainer). The Argon2id/hash-wasm code was removed rather than
+      // left in place unused -- re-add it once the construction is verified.
 
       applyBlock(state, block, address);
       state.syncedHeight = block.height;
