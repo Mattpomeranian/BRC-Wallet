@@ -88,8 +88,9 @@ The in-app **Check for updates** button compares your version against this repo'
 ## Troubleshooting
 
 - **"Cannot find module ..." on startup** — run `npm install` again; a dependency was likely added or updated.
-- **Sync fails with a 429 error** — the public helper server is rate-limiting you. Wait a moment, or switch to a different helper server in Settings.
-- **"No wallet loaded"** — you'll land here on first launch, or if the app couldn't find your last wallet file. Create a new one or import your backup.
+- **Sync fails with a 429 error** — the app already retries automatically with backoff, so this only surfaces if every retry is exhausted. Wait a moment, or pick a different helper server from the dropdown in Settings.
+- **"No wallet loaded"** — you'll land here on first launch, or if the app couldn't find your last wallet file. Create a new one, import your backup, or click the app title to reopen a wallet from the switcher if you've used it before.
+- **"Check for updates" says no releases / rate-limited** — expected until a release is actually published on GitHub (see [Publishing an update](#publishing-an-update)); a rate-limit message means GitHub is temporarily throttling the check, not an app problem — try again shortly.
 
 ## Credits
 
