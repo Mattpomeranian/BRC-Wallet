@@ -462,6 +462,20 @@ el.switcherCreate.addEventListener('click', async () => {
 let autoSyncIntervalMs = 60000;
 let autoSyncTimer = null;
 
+let lastKnownBalanceWei = null;
+
+// Matches the minimum fee enforced in main.js's wallet:send handler (152
+// wei per docs, since a tx is always exactly 152 bytes at 1 wei/byte).
+const MIN_FEE_WEI = 152n;
+
+function computeMaxSendableBrc() {
+  if (lastKnownBalanceWei === null) return null;
+  const balance = BigInt(lastKnownBalanceWei);
+  const max = balance - MIN_FEE_WEI;
+  if (max <= 0n) return null;
+  return weiToBrcDisplay(max.toString());
+}
+
 async function runSync() {
   if (el.btnSync.disabled) return; // a sync (manual or auto) is already running
   el.btnSync.disabled = true;
@@ -471,6 +485,7 @@ async function runSync() {
     el.balance.textContent = `${res.balanceBrc} BRC`;
     el.syncStatus.textContent = `Block ${res.syncedHeight} / ${res.tipHeight} · nonce ${res.nonce}`;
     renderHistory(res.history);
+    lastKnownBalanceWei = res.balanceWei;
   } catch (e) {
     el.syncStatus.textContent = `Error: ${e.message}`;
   } finally {
@@ -586,7 +601,20 @@ document.getElementById('btn-donate').addEventListener('click', async () => {
     buildMessage: () => [
       h('div', { text: 'This will send BRC to the developer\u2019s address:' }),
       h('div', { text: DONATION_ADDRESS, className: 'kv address-block' }),
-      h('div', { text: 'Amount (BRC)', className: 'modal-input-label' })
+      h('div', { text: 'Amount (BRC)', className: 'modal-input-label' }),
+      h('button', {
+        text: 'Donate all', className: 'small spaced-above',
+        onClick: () => {
+          const max = computeMaxSendableBrc();
+          if (max === null) {
+            alert(lastKnownBalanceWei === null
+              ? 'Sync first so the app knows your exact balance.'
+              : 'Balance is too low to cover the minimum fee.');
+            return;
+          }
+          modal.input.value = max;
+        }
+      })
     ],
     showInput: true,
     inputType: 'text',
