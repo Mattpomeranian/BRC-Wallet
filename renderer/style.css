@@ -399,8 +399,6 @@ button.danger:hover { background: var(--danger-hover-bg); }
 }
 
 .history-list {
-  max-height: 220px;
-  overflow-y: auto;
   margin-top: 14px;
 }
 
