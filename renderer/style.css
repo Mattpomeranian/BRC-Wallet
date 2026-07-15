@@ -208,14 +208,6 @@ h1 {
   color: #fff;
 }
 
-.nav-abbr {
-  flex: 0 0 auto;
-  width: 22px;
-  font-weight: 600;
-  font-size: 11px;
-  text-align: center;
-}
-
 /* Sidebar is entirely display:none when collapsed (see .sidebar rule
    above), so no per-button hiding is needed anymore. */
 
