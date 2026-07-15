@@ -19,114 +19,195 @@
     <button id="btn-open-switcher-empty" class="small">Open a saved wallet…</button>
   </div>
 
-  <div id="screen-wallet" class="screen hidden">
-    <div class="sticky-header">
-      <h1 class="title-with-logo" id="wallet-title" title="Click to switch wallets">
-        <img src="assets/logo.png" alt="BRC Wallet logo" class="brand-logo brand-logo-title" />
-        <span id="wallet-title-text">BRC Wallet</span>
-      </h1>
-
-      <div class="tab-nav">
-        <button class="tab-btn active" data-tab="overview">Overview</button>
-        <button class="tab-btn" data-tab="send">Send</button>
-        <button class="tab-btn" data-tab="history">History</button>
-        <button class="tab-btn" data-tab="settings">Settings</button>
-      </div>
+  <div id="screen-wallet" class="screen hidden app-shell">
+    <div class="sidebar" id="sidebar">
+      <button class="nav-btn active" data-section="overview">
+        <span class="nav-abbr">OV</span><span class="nav-label">Overview</span>
+      </button>
+      <button class="nav-btn" data-section="send">
+        <span class="nav-abbr">SN</span><span class="nav-label">Send</span>
+      </button>
+      <button class="nav-btn" data-section="history">
+        <span class="nav-abbr">HI</span><span class="nav-label">History</span>
+      </button>
+      <button class="nav-btn" data-section="addressbook" data-feature="addressBook">
+        <span class="nav-abbr">AB</span><span class="nav-label">Address book</span><span class="lock-badge hidden">&#128274;</span>
+      </button>
+      <button class="nav-btn" data-section="stats" data-feature="stats">
+        <span class="nav-abbr">ST</span><span class="nav-label">Stats</span><span class="lock-badge hidden">&#128274;</span>
+      </button>
+      <button class="nav-btn" data-section="settings">
+        <span class="nav-abbr">SE</span><span class="nav-label">Settings</span>
+      </button>
     </div>
 
-    <div id="tab-overview" class="tab-panel">
-      <div class="card">
-        <div class="label">Address</div>
-        <div class="address" id="wallet-address">-</div>
-        <button id="btn-copy-address" class="small">Copy</button>
-        <button id="btn-export" class="small">Export</button>
-        <button id="btn-toggle-qr" class="small">Show QR</button>
-        <div id="qr-wrap" class="qr-wrap hidden">
-          <img id="qr-code" alt="Address QR code" width="220" height="220" />
+    <div class="main-content">
+      <div class="sticky-header">
+        <div class="header-row">
+          <button id="sidebar-toggle" class="sidebar-toggle" title="Menu" aria-label="Menu"><span class="hamburger-icon"></span></button>
+          <h1 class="title-with-logo" id="wallet-title" title="Click to switch wallets">
+            <img src="assets/logo.png" alt="BRC Wallet logo" class="brand-logo brand-logo-title" />
+            <span id="wallet-title-text">BRC Wallet</span>
+            <span class="title-caret" aria-hidden="true">&#9662;</span>
+          </h1>
         </div>
       </div>
 
-      <div class="card">
-        <div class="label">Balance</div>
-        <div class="balance" id="wallet-balance">-</div>
-        <div class="muted small-text" id="sync-status">Not synced</div>
-        <button id="btn-sync">Sync</button>
-        <label class="checkbox-label">
-          <input type="checkbox" id="auto-sync-toggle" checked />
-          Auto-sync
-        </label>
-      </div>
-
-      <div class="donate">
-        <button id="btn-donate" class="small">☕ Support this project</button>
-      </div>
-    </div>
-
-    <div id="tab-send" class="tab-panel hidden">
-      <div class="card">
-        <div class="label">Send BRC</div>
-        <label for="send-to">Recipient address</label>
-        <input id="send-to" type="text" placeholder="64 hex characters" />
-        <label for="send-amount">Amount (BRC)</label>
-        <input id="send-amount" type="text" placeholder="0.00000000" />
-        <button id="btn-send-all" class="small spaced-above">Send all</button>
-        <label for="send-fee">Fee (BRC, optional — minimum applied otherwise)</label>
-        <input id="send-fee" type="text" placeholder="0.00000152" />
-        <button id="btn-send">Send</button>
-        <div id="send-result" class="small-text"></div>
-      </div>
-    </div>
-
-    <div id="tab-history" class="tab-panel hidden">
-      <div class="card">
-        <div class="label-row">
-          <div class="label">Transaction history</div>
-          <button id="btn-export-csv" class="small">Export CSV</button>
+      <div id="tab-overview" class="tab-panel">
+        <div class="card">
+          <div class="label">Address</div>
+          <div class="address" id="wallet-address">-</div>
+          <button id="btn-copy-address" class="small">Copy</button>
+          <button id="btn-export" class="small">Export</button>
+          <button id="btn-toggle-qr" class="small">Show QR</button>
+          <div id="qr-wrap" class="qr-wrap hidden">
+            <img id="qr-code" alt="Address QR code" width="220" height="220" />
+          </div>
         </div>
-        <div id="history-list" class="history-list">
-          <div class="muted small-text">Sync to load history.</div>
+
+        <div class="card">
+          <div class="label">Balance</div>
+          <div class="balance" id="wallet-balance">-</div>
+          <div class="muted small-text" id="sync-status">Not synced</div>
+          <button id="btn-sync">Sync</button>
+          <label class="checkbox-label">
+            <input type="checkbox" id="auto-sync-toggle" checked />
+            Auto-sync
+          </label>
+        </div>
+
+        <div class="donate">
+          <button id="btn-donate" class="small">☕ Support this project</button>
+          <div class="small-text muted" id="premium-progress"></div>
         </div>
       </div>
-    </div>
 
-    <div id="tab-settings" class="tab-panel hidden">
-      <div class="card">
-        <div class="label">Helper server</div>
-        <select id="api-url-select">
-          <option value="https://api1.browsercoin.org">api1.browsercoin.org</option>
-          <option value="https://api2.browsercoin.org">api2.browsercoin.org</option>
-          <option value="https://api1.taitech.eu">api1.taitech.eu</option>
-          <option value="custom">Custom URL…</option>
-        </select>
-        <label for="api-url">URL</label>
-        <input id="api-url" type="text" placeholder="https://api1.browsercoin.org" />
-        <button id="btn-save-url" class="small spaced-above">Save</button>
-        <div class="muted small-text">If one server is down, pick another from the list above and save.</div>
+      <div id="tab-send" class="tab-panel hidden">
+        <div class="card">
+          <div class="label">Send BRC</div>
+          <label for="send-to">Recipient address</label>
+          <input id="send-to" type="text" placeholder="64 hex characters" />
+          <button id="btn-pick-address" class="small spaced-above hidden">Choose from address book</button>
+          <label for="send-amount">Amount (BRC)</label>
+          <input id="send-amount" type="text" placeholder="0.00000000" />
+          <button id="btn-send-all" class="small spaced-above">Send all</button>
+          <label for="send-fee">Fee (BRC, optional — minimum applied otherwise)</label>
+          <input id="send-fee" type="text" placeholder="0.00000152" />
+          <button id="btn-send">Send</button>
+          <div id="send-result" class="small-text"></div>
+        </div>
       </div>
 
-      <div class="card">
-        <div class="label">Auto-sync interval</div>
-        <select id="auto-sync-interval-select">
-          <option value="30000">Every 30 seconds</option>
-          <option value="60000" selected>Every 60 seconds</option>
-          <option value="120000">Every 2 minutes</option>
-          <option value="300000">Every 5 minutes</option>
-        </select>
+      <div id="tab-history" class="tab-panel hidden">
+        <div class="card">
+          <div class="label-row">
+            <div class="label">Transaction history</div>
+            <button id="btn-export-csv" class="small">Export CSV</button>
+          </div>
+          <input id="history-search" type="text" placeholder="Search by address or type (sent/received/mined)…" class="hidden" />
+          <div id="history-search-locked" class="muted small-text hidden"></div>
+          <div id="history-list" class="history-list">
+            <div class="muted small-text">Sync to load history.</div>
+          </div>
+        </div>
       </div>
 
-      <div class="card">
-        <div class="label">Appearance</div>
-        <select id="theme-select">
-          <option value="dark">Dark</option>
-          <option value="light">Light</option>
-        </select>
+      <div id="tab-addressbook" class="tab-panel hidden">
+        <div id="addressbook-locked" class="card hidden">
+          <div class="label">Address book</div>
+          <div class="muted small-text"></div>
+        </div>
+        <div id="addressbook-unlocked" class="card hidden">
+          <div class="label">Address book</div>
+          <div id="addressbook-list"></div>
+          <label for="ab-name">Name</label>
+          <input id="ab-name" type="text" placeholder="e.g. Alice" />
+          <label for="ab-address">Address</label>
+          <input id="ab-address" type="text" placeholder="64 hex characters" />
+          <button id="btn-ab-add" class="small spaced-above">Add</button>
+        </div>
       </div>
 
-      <div class="card">
-        <div class="label">About</div>
-        <div class="small-text spaced-below" id="app-version">Version —</div>
-        <button id="btn-check-update" class="small">Check for updates</button>
-        <div class="small-text" id="update-status"></div>
+      <div id="tab-stats" class="tab-panel hidden">
+        <div id="stats-locked" class="card hidden">
+          <div class="label">Statistics</div>
+          <div class="muted small-text"></div>
+        </div>
+        <div id="stats-unlocked" class="card hidden">
+          <div class="label">Statistics</div>
+          <div id="stats-content"></div>
+        </div>
+      </div>
+
+      <div id="tab-settings" class="tab-panel hidden">
+        <div class="card">
+          <div class="label">Helper server</div>
+          <select id="api-url-select">
+            <option value="https://api1.browsercoin.org">api1.browsercoin.org</option>
+            <option value="https://api2.browsercoin.org">api2.browsercoin.org</option>
+            <option value="https://api1.taitech.eu">api1.taitech.eu</option>
+            <option value="custom">Custom URL…</option>
+          </select>
+          <label for="api-url">URL</label>
+          <input id="api-url" type="text" placeholder="https://api1.browsercoin.org" />
+          <button id="btn-save-url" class="small spaced-above">Save</button>
+          <div class="muted small-text">If one server is down, pick another from the list above and save.</div>
+        </div>
+
+        <div class="card">
+          <div class="label">Auto-sync interval</div>
+          <select id="auto-sync-interval-select">
+            <option value="30000">Every 30 seconds</option>
+            <option value="60000" selected>Every 60 seconds</option>
+            <option value="120000">Every 2 minutes</option>
+            <option value="300000">Every 5 minutes</option>
+          </select>
+        </div>
+
+        <div class="card">
+          <div class="label">Appearance</div>
+          <label for="theme-select">Theme</label>
+          <select id="theme-select">
+            <option value="dark">Dark</option>
+            <option value="light">Light</option>
+          </select>
+          <div id="accent-locked" class="muted small-text spaced-above hidden"></div>
+          <div id="accent-unlocked" class="hidden">
+            <label for="accent-select" class="spaced-above">Accent color</label>
+            <select id="accent-select">
+              <option value="">Default (purple)</option>
+              <option value="#2f9e5f">Green</option>
+              <option value="#c53d3d">Red</option>
+              <option value="#d98c1f">Amber</option>
+              <option value="#2f8fc5">Blue</option>
+              <option value="#a83fd0">Magenta</option>
+            </select>
+            <label for="qr-color-select" class="spaced-above">QR code color</label>
+            <select id="qr-color-select">
+              <option value="">Default (black)</option>
+              <option value="#5b5fe0">Purple</option>
+              <option value="#2f9e5f">Green</option>
+              <option value="#c53d3d">Red</option>
+              <option value="#2f8fc5">Blue</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="label">Notifications</div>
+          <div id="notifications-locked" class="muted small-text hidden"></div>
+          <label class="checkbox-label hidden" id="notifications-toggle-wrap">
+            <input type="checkbox" id="notifications-toggle" />
+            Notify me when I receive BRC
+          </label>
+        </div>
+
+        <div class="card">
+          <div class="label">About</div>
+          <div class="small-text spaced-below" id="app-version">Version —</div>
+          <button id="btn-check-update" class="small">Check for updates</button>
+          <div class="small-text" id="update-status"></div>
+        </div>
       </div>
     </div>
   </div>

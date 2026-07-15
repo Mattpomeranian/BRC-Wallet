@@ -33,7 +33,29 @@ const el = {
   switcherClose: document.getElementById('switcher-close'),
   switcherImport: document.getElementById('switcher-import'),
   switcherCreate: document.getElementById('switcher-create'),
-  btnOpenSwitcherEmpty: document.getElementById('btn-open-switcher-empty')
+  btnOpenSwitcherEmpty: document.getElementById('btn-open-switcher-empty'),
+  sidebar: document.getElementById('sidebar'),
+  sidebarToggle: document.getElementById('sidebar-toggle'),
+  premiumProgress: document.getElementById('premium-progress'),
+  historySearch: document.getElementById('history-search'),
+  historySearchLocked: document.getElementById('history-search-locked'),
+  addressbookLocked: document.getElementById('addressbook-locked'),
+  addressbookUnlocked: document.getElementById('addressbook-unlocked'),
+  addressbookList: document.getElementById('addressbook-list'),
+  abName: document.getElementById('ab-name'),
+  abAddress: document.getElementById('ab-address'),
+  btnAbAdd: document.getElementById('btn-ab-add'),
+  btnPickAddress: document.getElementById('btn-pick-address'),
+  statsLocked: document.getElementById('stats-locked'),
+  statsUnlocked: document.getElementById('stats-unlocked'),
+  statsContent: document.getElementById('stats-content'),
+  accentLocked: document.getElementById('accent-locked'),
+  accentUnlocked: document.getElementById('accent-unlocked'),
+  accentSelect: document.getElementById('accent-select'),
+  qrColorSelect: document.getElementById('qr-color-select'),
+  notificationsLocked: document.getElementById('notifications-locked'),
+  notificationsToggleWrap: document.getElementById('notifications-toggle-wrap'),
+  notificationsToggle: document.getElementById('notifications-toggle')
 };
 
 // Same strict decimal format the main process enforces in tx.js's
@@ -169,6 +191,7 @@ function showWalletScreen(address) {
   screenWallet.classList.remove('hidden');
   resetToOverviewTab();
   refreshHistory();
+  refreshPremiumStatus();
   startAutoSync();
 }
 
@@ -178,7 +201,7 @@ function showEmptyScreen() {
 }
 
 function resetToOverviewTab() {
-  document.querySelectorAll('.tab-btn').forEach((b) => b.classList.toggle('active', b.dataset.tab === 'overview'));
+  document.querySelectorAll('.nav-btn').forEach((b) => b.classList.toggle('active', b.dataset.section === 'overview'));
   document.querySelectorAll('.tab-panel').forEach((panel) => panel.classList.toggle('hidden', panel.id !== 'tab-overview'));
 }
 
@@ -197,10 +220,93 @@ async function refreshSettings() {
   autoSyncIntervalMs = settings.autoSyncIntervalMs || 60000;
   applyTheme(settings.theme || 'dark');
   el.themeSelect.value = settings.theme || 'dark';
+  applyAccent(settings.accentColor || null);
+  el.accentSelect.value = settings.accentColor || '';
+  el.qrColorSelect.value = settings.qrStyle || '';
+  el.notificationsToggle.checked = Boolean(settings.notificationsEnabled);
 }
 
 function applyTheme(theme) {
   document.documentElement.setAttribute('data-theme', theme);
+}
+
+// ---- Premium features (unlocked by cumulative donations, no license server) ----
+
+const ACCENT_MAP = {
+  '#2f9e5f': 'green',
+  '#c53d3d': 'red',
+  '#d98c1f': 'amber',
+  '#2f8fc5': 'blue',
+  '#a83fd0': 'magenta'
+};
+
+function applyAccent(hex) {
+  const key = hex ? ACCENT_MAP[hex] : null;
+  if (key) document.documentElement.setAttribute('data-accent', key);
+  else document.documentElement.removeAttribute('data-accent');
+}
+
+let premiumStatus = null;
+
+async function refreshPremiumStatus() {
+  try {
+    premiumStatus = await window.brcWallet.getPremiumStatus();
+  } catch (e) {
+    return;
+  }
+  const u = premiumStatus.unlocked;
+  const t = premiumStatus.thresholds;
+
+  document.querySelectorAll('.nav-btn[data-feature]').forEach((btn) => {
+    const feature = btn.dataset.feature;
+    const badge = btn.querySelector('.lock-badge');
+    const locked = !u[feature];
+    badge.classList.toggle('hidden', !locked);
+    if (locked) badge.textContent = `\u{1F512} ${t[feature]}`;
+  });
+
+  el.addressbookLocked.classList.toggle('hidden', u.addressBook);
+  el.addressbookUnlocked.classList.toggle('hidden', !u.addressBook);
+  if (!u.addressBook) {
+    el.addressbookLocked.querySelector('.muted').textContent =
+      `Donate ${t.addressBook} BRC total to unlock the address book. You've donated ${premiumStatus.totalDonatedBrc} BRC so far.`;
+  }
+  el.btnPickAddress.classList.toggle('hidden', !u.addressBook);
+
+  el.statsLocked.classList.toggle('hidden', u.stats);
+  el.statsUnlocked.classList.toggle('hidden', !u.stats);
+  if (!u.stats) {
+    el.statsLocked.querySelector('.muted').textContent =
+      `Donate ${t.stats} BRC total to unlock statistics. You've donated ${premiumStatus.totalDonatedBrc} BRC so far.`;
+  }
+
+  el.historySearch.classList.toggle('hidden', !u.search);
+  el.historySearchLocked.classList.toggle('hidden', u.search);
+  if (!u.search) {
+    el.historySearchLocked.textContent = `\u{1F512} Donate ${t.search} BRC total to unlock history search.`;
+  }
+
+  el.accentLocked.classList.toggle('hidden', u.themesQr);
+  el.accentUnlocked.classList.toggle('hidden', !u.themesQr);
+  if (!u.themesQr) {
+    el.accentLocked.textContent = `\u{1F512} Donate ${t.themesQr} BRC total to unlock accent colors and QR customization.`;
+  }
+
+  el.notificationsLocked.classList.toggle('hidden', u.notifications);
+  el.notificationsToggleWrap.classList.toggle('hidden', !u.notifications);
+  if (!u.notifications) {
+    el.notificationsLocked.textContent = `\u{1F512} Donate ${t.notifications} BRC total to unlock desktop notifications.`;
+  }
+
+  const nextLock = Object.entries(t)
+    .filter(([key]) => !u[key])
+    .sort((a, b) => a[1] - b[1])[0];
+  if (nextLock) {
+    const remaining = (nextLock[1] - Number(premiumStatus.totalDonatedBrc)).toFixed(8).replace(/0+$/, '').replace(/\.$/, '');
+    el.premiumProgress.textContent = `${premiumStatus.totalDonatedBrc} BRC donated \u2014 ${remaining} more unlocks the next feature`;
+  } else {
+    el.premiumProgress.textContent = `${premiumStatus.totalDonatedBrc} BRC donated \u2014 everything unlocked, thank you!`;
+  }
 }
 
 async function refreshHistory() {
@@ -212,9 +318,10 @@ async function refreshHistory() {
   }
 }
 
-function renderHistory(history) {
+function renderHistory(history, isFiltered = false) {
+  if (!isFiltered) lastRenderedHistory = history || [];
   if (!history || history.length === 0) {
-    el.historyList.replaceChildren(h('div', { text: 'No transactions yet.', className: 'muted small-text' }));
+    el.historyList.replaceChildren(h('div', { text: isFiltered ? 'No matching transactions.' : 'No transactions yet.', className: 'muted small-text' }));
     return;
   }
   const entries = [...history].reverse().map((entry) => {
@@ -280,20 +387,202 @@ async function init() {
 }
 
 function setupTabs() {
-  const buttons = document.querySelectorAll('.tab-btn');
+  const buttons = document.querySelectorAll('.nav-btn');
   buttons.forEach((btn) => {
     btn.addEventListener('click', () => {
-      const target = btn.dataset.tab;
+      const target = btn.dataset.section;
       buttons.forEach((b) => b.classList.toggle('active', b === btn));
       document.querySelectorAll('.tab-panel').forEach((panel) => {
         panel.classList.toggle('hidden', panel.id !== `tab-${target}`);
       });
+      collapseSidebar();
       if (target === 'history') refreshHistory();
+      if (target === 'addressbook') refreshAddressBook();
+      if (target === 'stats') refreshStats();
     });
+  });
+
+  el.sidebarToggle.addEventListener('click', () => {
+    el.sidebar.classList.toggle('expanded');
+  });
+
+  document.addEventListener('click', (e) => {
+    if (
+      el.sidebar.classList.contains('expanded') &&
+      !el.sidebar.contains(e.target) &&
+      e.target !== el.sidebarToggle
+    ) {
+      collapseSidebar();
+    }
   });
 }
 
+function collapseSidebar() {
+  el.sidebar.classList.remove('expanded');
+}
+
 // ---- Wallet creation / import / export ----
+
+// ---- Address book (premium: 10 BRC) ----
+
+async function refreshAddressBook() {
+  if (!premiumStatus || !premiumStatus.unlocked.addressBook) return;
+  try {
+    const list = await window.brcWallet.listAddressBook();
+    renderAddressBook(list);
+  } catch (e) {
+    // Non-fatal.
+  }
+}
+
+function renderAddressBook(list) {
+  if (!list || list.length === 0) {
+    el.addressbookList.replaceChildren(h('div', { text: 'No saved addresses yet.', className: 'muted small-text' }));
+    return;
+  }
+  const rows = list.map((entry) => {
+    const info = h('div', {}, [
+      h('div', { text: entry.name, className: 'ab-name' }),
+      h('div', { text: shortAddr(entry.address), className: 'ab-addr' })
+    ]);
+    const renameBtn = h('button', {
+      text: '\u270E', className: 'small', title: 'Rename',
+      onClick: async () => {
+        const newName = await openModal({
+          title: 'Rename entry',
+          buildMessage: () => `Current name: ${entry.name}`,
+          showInput: true,
+          inputType: 'text'
+        });
+        if (newName === null || newName.trim() === '') return;
+        try {
+          const updated = await window.brcWallet.renameAddressBookEntry(entry.address, newName.trim());
+          renderAddressBook(updated);
+        } catch (e) {
+          alert(e.message);
+        }
+      }
+    });
+    const removeBtn = h('button', {
+      text: '\u2715', className: 'small', title: 'Remove',
+      onClick: async () => {
+        const updated = await window.brcWallet.removeAddressBookEntry(entry.address);
+        renderAddressBook(updated);
+      }
+    });
+    return h('div', { className: 'ab-row' }, [info, renameBtn, removeBtn]);
+  });
+  el.addressbookList.replaceChildren(...rows);
+}
+
+el.btnAbAdd.addEventListener('click', async () => {
+  const name = el.abName.value.trim();
+  const address = el.abAddress.value.trim().toLowerCase();
+  if (!name) {
+    alert('Enter a name');
+    return;
+  }
+  if (!ADDRESS_RE.test(address)) {
+    alert('Invalid address (64 hex characters expected)');
+    return;
+  }
+  try {
+    const list = await window.brcWallet.addAddressBookEntry(name, address);
+    renderAddressBook(list);
+    el.abName.value = '';
+    el.abAddress.value = '';
+  } catch (e) {
+    alert(e.message);
+  }
+});
+
+el.btnPickAddress.addEventListener('click', async () => {
+  const list = await window.brcWallet.listAddressBook();
+  if (list.length === 0) {
+    alert('Your address book is empty. Add an entry from the Address book tab first.');
+    return;
+  }
+  const rows = list.map((entry) =>
+    h('div', { className: 'wallet-row-info', onClick: () => {
+      el.sendTo.value = entry.address;
+      modal.cancel.click(); // closes via the modal's own cleanup path, not a manual hide
+    } }, [
+      h('div', { text: entry.name, className: 'wallet-label' }),
+      h('div', { text: shortAddr(entry.address), className: 'wallet-row-addr' })
+    ])
+  );
+  await openModal({
+    title: 'Choose an address',
+    buildMessage: () => rows,
+    showInput: false,
+    hideCancel: false,
+    okLabel: 'Close'
+  });
+});
+
+// ---- Statistics (premium: 50 BRC) ----
+
+async function refreshStats() {
+  if (!premiumStatus || !premiumStatus.unlocked.stats) return;
+  try {
+    const history = await window.brcWallet.getHistory();
+    renderStats(history);
+  } catch (e) {
+    // Non-fatal.
+  }
+}
+
+function renderStats(history) {
+  if (!history || history.length === 0) {
+    el.statsContent.replaceChildren(h('div', { text: 'No transactions yet.', className: 'muted small-text' }));
+    return;
+  }
+  let receivedWei = 0n;
+  let sentWei = 0n;
+  let minedWei = 0n;
+  let receivedCount = 0;
+  let sentCount = 0;
+  let minedCount = 0;
+  let largestWei = 0n;
+
+  for (const entry of history) {
+    const amt = BigInt(entry.amountWei);
+    if (amt > largestWei) largestWei = amt;
+    if (entry.type === 'received') { receivedWei += amt; receivedCount++; }
+    else if (entry.type === 'sent') { sentWei += amt; sentCount++; }
+    else if (entry.type === 'mined') { minedWei += amt; minedCount++; }
+  }
+
+  const rows = [
+    ['Total received', `${weiToBrcDisplay(receivedWei.toString())} BRC (${receivedCount} tx)`],
+    ['Total sent', `${weiToBrcDisplay(sentWei.toString())} BRC (${sentCount} tx)`],
+    ['Total mined', `${weiToBrcDisplay(minedWei.toString())} BRC (${minedCount} tx)`],
+    ['Largest transaction', `${weiToBrcDisplay(largestWei.toString())} BRC`],
+    ['Total transactions', String(history.length)]
+  ].map(([label, value]) => h('div', { className: 'stat-row' }, [
+    h('span', { text: label, className: 'stat-label' }),
+    h('span', { text: value, className: 'stat-value' })
+  ]));
+
+  el.statsContent.replaceChildren(...rows);
+}
+
+// ---- History search (premium: 20 BRC) ----
+
+let lastRenderedHistory = [];
+
+el.historySearch.addEventListener('input', () => {
+  const query = el.historySearch.value.trim().toLowerCase();
+  if (!query) {
+    renderHistory(lastRenderedHistory);
+    return;
+  }
+  const filtered = lastRenderedHistory.filter((entry) => {
+    if (['sent', 'received', 'mined'].includes(query) && entry.type === query) return true;
+    return entry.counterparty && entry.counterparty.toLowerCase().includes(query);
+  });
+  renderHistory(filtered, true);
+});
 
 document.getElementById('btn-create').addEventListener('click', async () => {
   const res = await window.brcWallet.createWallet();
@@ -355,7 +644,8 @@ document.getElementById('btn-toggle-qr').addEventListener('click', async () => {
   }
   try {
     if (!el.qrImg.src) {
-      const dataUrl = await window.brcWallet.getAddressQrCode();
+      const settings = await window.brcWallet.getSettings();
+      const dataUrl = await window.brcWallet.getAddressQrCode(settings.qrStyle || undefined);
       el.qrImg.src = dataUrl;
     }
     el.qrWrap.classList.remove('hidden');
@@ -492,6 +782,7 @@ async function runSync() {
     el.syncStatus.textContent = `Block ${res.syncedHeight} / ${res.tipHeight} · nonce ${res.nonce}`;
     renderHistory(res.history);
     lastKnownBalanceWei = res.balanceWei;
+    refreshPremiumStatus();
   } catch (e) {
     el.syncStatus.textContent = `Error: ${e.message}`;
   } finally {
@@ -725,6 +1016,33 @@ el.themeSelect.addEventListener('change', async () => {
   applyTheme(theme); // instant feedback
   try {
     await window.brcWallet.setTheme(theme);
+  } catch (e) {
+    alert(e.message);
+  }
+});
+
+el.accentSelect.addEventListener('change', async () => {
+  const color = el.accentSelect.value || null;
+  applyAccent(color); // instant feedback
+  try {
+    await window.brcWallet.setAccentColor(color);
+  } catch (e) {
+    alert(e.message);
+  }
+});
+
+el.qrColorSelect.addEventListener('change', async () => {
+  try {
+    await window.brcWallet.setQrStyle(el.qrColorSelect.value || null);
+    el.qrImg.removeAttribute('src'); // force regeneration with new color next time it's shown
+  } catch (e) {
+    alert(e.message);
+  }
+});
+
+el.notificationsToggle.addEventListener('change', async () => {
+  try {
+    await window.brcWallet.setNotificationsEnabled(el.notificationsToggle.checked);
   } catch (e) {
     alert(e.message);
   }

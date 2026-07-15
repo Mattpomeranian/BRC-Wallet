@@ -32,6 +32,7 @@ Your private key never leaves your machine and is never sent anywhere. This app 
 - **Auto-load at startup** — remembers your last wallet; encrypted wallets still always ask for the password
 - **Light and dark theme**
 - **Update check** against this repo's GitHub releases
+- **Premium features, unlocked by donating** — address book, history search, desktop notifications, custom accent colors + QR styling, and statistics unlock progressively based on how much you've donated in total (tracked automatically from your own synced history, no license server or account involved)
 
 ## Getting started
 

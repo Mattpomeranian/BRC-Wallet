@@ -15,9 +15,15 @@ contextBridge.exposeInMainWorld('brcWallet', {
   renameSavedWallet: (address, label) => ipcRenderer.invoke('wallet:renameSaved', { address, label }),
   removeSavedWallet: (address) => ipcRenderer.invoke('wallet:removeSaved', address),
 
-  getAddressQrCode: () => ipcRenderer.invoke('wallet:qrCode'),
+  getAddressQrCode: (customColor) => ipcRenderer.invoke('wallet:qrCode', customColor),
   getHistory: () => ipcRenderer.invoke('wallet:history'),
   exportHistoryCsv: () => ipcRenderer.invoke('wallet:exportHistoryCsv'),
+  getPremiumStatus: () => ipcRenderer.invoke('wallet:premiumStatus'),
+
+  listAddressBook: () => ipcRenderer.invoke('addressBook:list'),
+  addAddressBookEntry: (name, address) => ipcRenderer.invoke('addressBook:add', { name, address }),
+  removeAddressBookEntry: (address) => ipcRenderer.invoke('addressBook:remove', address),
+  renameAddressBookEntry: (address, name) => ipcRenderer.invoke('addressBook:rename', { address, name }),
 
   sync: () => ipcRenderer.invoke('wallet:sync'),
   send: (payload) => ipcRenderer.invoke('wallet:send', payload),
@@ -26,6 +32,9 @@ contextBridge.exposeInMainWorld('brcWallet', {
   setApiBaseUrl: (url) => ipcRenderer.invoke('settings:setApiBaseUrl', url),
   setAutoSyncInterval: (ms) => ipcRenderer.invoke('settings:setAutoSyncInterval', ms),
   setTheme: (theme) => ipcRenderer.invoke('settings:setTheme', theme),
+  setAccentColor: (color) => ipcRenderer.invoke('settings:setAccentColor', color),
+  setQrStyle: (color) => ipcRenderer.invoke('settings:setQrStyle', color),
+  setNotificationsEnabled: (enabled) => ipcRenderer.invoke('settings:setNotificationsEnabled', enabled),
 
   getAppVersion: () => ipcRenderer.invoke('app:getVersion'),
   checkUpdate: () => ipcRenderer.invoke('app:checkUpdate'),

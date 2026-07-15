@@ -1,6 +1,6 @@
 'use strict';
 
-const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, Notification } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -33,6 +33,21 @@ try {
 
 const GITHUB_REPO = 'Mattpomeranian/BRC-Wallet';
 const AUTO_SYNC_INTERVALS_MS = [30000, 60000, 120000, 300000];
+
+// Must match DONATION_ADDRESS in renderer.js -- kept as a separate constant
+// since the renderer (browser context) can't require this Node module.
+const DONATION_ADDRESS = 'a312575c148aac8d7f601a42975595203f4504524ead2a22a150d26c98fe6ce0';
+
+// Premium features unlock cumulatively based on total BRC ever donated to
+// DONATION_ADDRESS from the loaded wallet -- computed from already-synced
+// history, no license server involved.
+const PREMIUM_THRESHOLDS_BRC = {
+  addressBook: 10,
+  search: 20,
+  notifications: 25,
+  themesQr: 40,
+  stats: 50
+};
 
 let mainWindow;
 let store;
@@ -242,15 +257,105 @@ ipcMain.handle('wallet:removeSaved', async (_evt, address) => {
   return store.removeWallet(address);
 });
 
+// ---- IPC handlers: address book (premium, 10 BRC donated) ----
+
+ipcMain.handle('addressBook:list', async () => {
+  return store.readAddressBook();
+});
+
+ipcMain.handle('addressBook:add', async (_evt, { name, address }) => {
+  const trimmedName = String(name || '').trim().slice(0, 60);
+  const cleanAddress = String(address || '').trim().toLowerCase();
+  if (!trimmedName) throw new Error('Name cannot be empty');
+  if (!/^[0-9a-f]{64}$/.test(cleanAddress)) {
+    throw new Error('Invalid address (64 hex characters expected)');
+  }
+  return store.addAddressBookEntry(trimmedName, cleanAddress);
+});
+
+ipcMain.handle('addressBook:remove', async (_evt, address) => {
+  return store.removeAddressBookEntry(address);
+});
+
+ipcMain.handle('addressBook:rename', async (_evt, { address, name }) => {
+  const trimmed = String(name || '').trim().slice(0, 60);
+  if (!trimmed) throw new Error('Name cannot be empty');
+  return store.renameAddressBookEntry(address, trimmed);
+});
+
 // ---- IPC handlers: QR, history, CSV ----
 
-ipcMain.handle('wallet:qrCode', async () => {
+ipcMain.handle('wallet:qrCode', async (_evt, customColor) => {
   if (!currentWallet) throw new Error('No wallet loaded');
   const qr = qrcode(0, 'M'); // type 0 = auto-sized, 'M' = medium error correction
   qr.addData(currentWallet.address);
   qr.make();
-  const svg = qr.createSvgTag({ cellSize: 4, margin: 4 });
+  const color = /^#[0-9a-fA-F]{6}$/.test(customColor || '') ? customColor : '#000000';
+  // The library's dark-module <path> has no explicit fill (defaults to SVG's
+  // implicit black) -- inject one rather than trying to replace a literal
+  // "black" string that doesn't actually appear in the output.
+  const svg = qr.createSvgTag({ cellSize: 4, margin: 4 }).replace(
+    '<path d=',
+    `<path fill="${color}" d=`
+  );
   return `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`;
+});
+
+function computeTotalDonatedWei(history) {
+  let total = 0n;
+  for (const entry of history) {
+    if (entry.type === 'sent' && entry.counterparty === DONATION_ADDRESS) {
+      total += BigInt(entry.amountWei);
+    }
+  }
+  return total;
+}
+
+function maybeNotifyNewReceipts(address, history, settings) {
+  try {
+    // First time we've ever tracked this wallet: baseline silently instead
+    // of notifying for its entire pre-existing history at once.
+    if (!store.hasNotifyState(address)) {
+      store.writeLastNotifiedCount(address, history.length);
+      return;
+    }
+
+    const totalDonatedWei = computeTotalDonatedWei(history);
+    const notifUnlocked = Number(weiToBrc(totalDonatedWei.toString())) >= PREMIUM_THRESHOLDS_BRC.notifications;
+
+    if (notifUnlocked && settings.notificationsEnabled && Notification.isSupported()) {
+      const lastCount = store.readLastNotifiedCount(address);
+      const newEntries = history.slice(lastCount).filter((e) => e.type === 'received');
+      for (const entry of newEntries) {
+        new Notification({
+          title: 'BRC received',
+          body: `+${weiToBrc(entry.amountWei)} BRC from ${entry.counterparty.slice(0, 8)}\u2026`
+        }).show();
+      }
+    }
+    store.writeLastNotifiedCount(address, history.length);
+  } catch (e) {
+    // Notifications are a nice-to-have -- never let a failure here break sync.
+  }
+}
+
+ipcMain.handle('wallet:premiumStatus', async () => {
+  const emptyStatus = {
+    totalDonatedBrc: '0',
+    unlocked: { addressBook: false, search: false, notifications: false, themesQr: false, stats: false },
+    thresholds: PREMIUM_THRESHOLDS_BRC
+  };
+  if (!currentWallet) return emptyStatus;
+  const cached = store.readSyncCache(currentWallet.address);
+  const history = cached && cached.history ? cached.history : [];
+  const totalWei = computeTotalDonatedWei(history);
+  const totalBrc = weiToBrc(totalWei.toString());
+  const totalNum = Number(totalBrc);
+  const unlocked = {};
+  for (const [key, threshold] of Object.entries(PREMIUM_THRESHOLDS_BRC)) {
+    unlocked[key] = totalNum >= threshold;
+  }
+  return { totalDonatedBrc: totalBrc, unlocked, thresholds: PREMIUM_THRESHOLDS_BRC };
 });
 
 ipcMain.handle('wallet:history', async () => {
@@ -340,6 +445,33 @@ ipcMain.handle('settings:setTheme', async (_evt, theme) => {
   return settings;
 });
 
+ipcMain.handle('settings:setAccentColor', async (_evt, color) => {
+  if (color !== null && !/^#[0-9a-fA-F]{6}$/.test(color)) {
+    throw new Error('Invalid color (expected hex like #5b5fe0, or null for default)');
+  }
+  const settings = store.readSettings();
+  settings.accentColor = color;
+  store.writeSettings(settings);
+  return settings;
+});
+
+ipcMain.handle('settings:setQrStyle', async (_evt, color) => {
+  if (color !== null && !/^#[0-9a-fA-F]{6}$/.test(color)) {
+    throw new Error('Invalid color (expected hex like #5b5fe0, or null for default)');
+  }
+  const settings = store.readSettings();
+  settings.qrStyle = color;
+  store.writeSettings(settings);
+  return settings;
+});
+
+ipcMain.handle('settings:setNotificationsEnabled', async (_evt, enabled) => {
+  const settings = store.readSettings();
+  settings.notificationsEnabled = Boolean(enabled);
+  store.writeSettings(settings);
+  return settings;
+});
+
 // ---- IPC handlers: app info / updates ----
 
 ipcMain.handle('app:getVersion', async () => {
@@ -402,6 +534,7 @@ ipcMain.handle('wallet:sync', async () => {
       mainWindow.webContents.send('wallet:syncProgress', progress);
     });
     store.writeSyncCache(currentWallet.address, result);
+    maybeNotifyNewReceipts(currentWallet.address, result.history, settings);
     return { ...result, balanceBrc: weiToBrc(result.balanceWei) };
   } finally {
     syncInFlight = false;

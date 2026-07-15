@@ -7,7 +7,10 @@ const DEFAULT_SETTINGS = {
   lastWalletPath: null,
   apiBaseUrl: 'https://api1.browsercoin.org',
   autoSyncIntervalMs: 60000,
-  theme: 'dark'
+  theme: 'dark',
+  accentColor: null, // premium: custom accent, null = default purple
+  qrStyle: null, // premium: custom QR color, null = default
+  notificationsEnabled: false // premium: desktop notification on new received tx
 };
 
 class Store {
@@ -15,6 +18,7 @@ class Store {
     this.dir = userDataDir;
     this.settingsPath = path.join(this.dir, 'settings.json');
     this.walletsPath = path.join(this.dir, 'wallets.json');
+    this.addressBookPath = path.join(this.dir, 'address-book.json');
     this.syncCacheDir = path.join(this.dir, 'sync-cache');
     if (!fs.existsSync(this.syncCacheDir)) {
       fs.mkdirSync(this.syncCacheDir, { recursive: true, mode: 0o700 });
@@ -94,6 +98,67 @@ class Store {
     const list = this.readWallets().filter((w) => w.address !== address);
     this.writeWallets(list);
     return list;
+  }
+
+  // ---- Address book (name -> address, global across wallets) ----
+
+  readAddressBook() {
+    try {
+      const list = JSON.parse(fs.readFileSync(this.addressBookPath, 'utf8'));
+      return Array.isArray(list) ? list : [];
+    } catch {
+      return [];
+    }
+  }
+
+  writeAddressBook(list) {
+    fs.writeFileSync(this.addressBookPath, JSON.stringify(list, null, 2), { encoding: 'utf8', mode: 0o600 });
+  }
+
+  addAddressBookEntry(name, address) {
+    const list = this.readAddressBook();
+    list.push({ name, address: address.toLowerCase() });
+    this.writeAddressBook(list);
+    return list;
+  }
+
+  removeAddressBookEntry(address) {
+    const list = this.readAddressBook().filter((e) => e.address !== address.toLowerCase());
+    this.writeAddressBook(list);
+    return list;
+  }
+
+  renameAddressBookEntry(address, name) {
+    const list = this.readAddressBook();
+    const entry = list.find((e) => e.address === address.toLowerCase());
+    if (entry) entry.name = name;
+    this.writeAddressBook(list);
+    return list;
+  }
+
+  // ---- Notification tracking (last count of history entries we've
+  // already notified about, per wallet address, so we don't re-notify on
+  // every sync for the same transactions) ----
+
+  notifyStatePath(address) {
+    return path.join(this.syncCacheDir, `${address}.notify.json`);
+  }
+
+  hasNotifyState(address) {
+    return fs.existsSync(this.notifyStatePath(address));
+  }
+
+  readLastNotifiedCount(address) {
+    try {
+      const data = JSON.parse(fs.readFileSync(this.notifyStatePath(address), 'utf8'));
+      return data.count || 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  writeLastNotifiedCount(address, count) {
+    fs.writeFileSync(this.notifyStatePath(address), JSON.stringify({ count }), { encoding: 'utf8', mode: 0o600 });
   }
 }
 
