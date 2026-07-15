@@ -6,28 +6,28 @@
 // small local cache (last synced height + running balance/nonce for our
 // own address) and replays only the blocks it hasn't seen yet.
 //
-// Trust note: this trusts the helper server's block CONTENTS as-is (it does
-// not re-verify proof-of-work or the txRoot/stateRoot Merkle commitments --
-// doing that would require a full Argon2id + Merkle implementation and
-// would make sync far slower). What it DOES verify is chain continuity:
-// each block's declared height must be exactly one more than the last, and
-// its prevHash must match the hash of the block we previously accepted. A
-// helper that tries to splice in an inconsistent or out-of-order block gets
-// caught here and sync aborts with a clear error instead of silently
-// producing a wrong balance. This is NOT a full validating node -- PoW and
-// Merkle roots are still unchecked -- but combined with the genesis pin
-// below it closes the cheapest and easiest attacks a misbehaving helper
-// could otherwise pull off, including serving an entirely fabricated
-// alternate chain from height 0 (internally consistent but not the real
-// BrowserCoin network).
+// Trust note: this trusts the helper server's block CONTENTS as-is for both
+// proof-of-work and the txRoot/stateRoot Merkle commitments. A PoW check
+// (Argon2id, src/pow.js) was implemented and tested but had to be reverted
+// -- see the comment at the applyBlock() call site below for why. What this
+// DOES verify: chain continuity (each block's declared height must be
+// exactly one more than the last, and its prevHash must match the hash of
+// the block we previously accepted) and the genesis hash (see below). A
+// helper that tries to splice in an inconsistent or out-of-order block, or
+// serve a fabricated chain from height 0, gets caught here. This is NOT a
+// full validating node -- PoW and Merkle roots are still unchecked -- so a
+// helper that already knows the real chain so far could still splice in a
+// block with fabricated contents past the last honestly-synced height,
+// without needing to have done any real work.
 //
-// Genesis pin: per docs/developers.md §4, the genesis block is deterministic
-// (height 0, all-zero hashes/miner, timestamp 1700000000, difficulty
-// 0x20400000, no txs) -- "Independent verifiers should treat any chain
-// whose height-0 block differs from this as a different network." We verify
-// block 0's hash against this known-good value before trusting anything a
-// helper reports, so a malicious/MITM'd helper can no longer serve a fake
-// chain with a fabricated balance or incoming transactions.
+// Genesis pin: docs/developers.md §4 says the genesis block is deterministic
+// and "independent verifiers should treat any chain whose height-0 block
+// differs from this as a different network." The doc's own stated values
+// are stale (see note on GENESIS_BLOCK_HASH below), but the principle holds
+// -- we verify block 0's hash against the real network's known-good value
+// before trusting anything a helper reports, so a malicious/MITM'd helper
+// can no longer serve a fake chain with a fabricated balance or incoming
+// transactions.
 
 const { getTip, getBlocks } = require('./api');
 const { decodeBlock, blockReward } = require('./block');
@@ -104,6 +104,20 @@ async function syncAddress(baseUrl, address, cachedState, onProgress) {
           `helper is misbehaving. Try a different helper server.`
         );
       }
+
+      // PoW verification (Argon2id, see pow.js) was attempted here but had
+      // to be reverted: after testing multiple parameter hypotheses against
+      // a real, confirmed-valid mined block (height 29555, synced via
+      // api1.browsercoin.org), none produced a hash meeting that block's own
+      // declared difficulty target. The exact hash construction the real
+      // network uses (possible extra associated data, different field
+      // ordering, or a non-conformant reference implementation despite the
+      // docs' RFC 9106 claim) could not be confirmed without the actual
+      // src/crypto/pow.ts source. Shipping an unverified check that rejects
+      // legitimate blocks is worse than not checking at all, so this is
+      // disabled until the real construction can be confirmed against
+      // ground truth (e.g. by getting the source from the BrowserCoin repo
+      // or maintainer). pow.js is left in place for that future work.
 
       applyBlock(state, block, address);
       state.syncedHeight = block.height;
