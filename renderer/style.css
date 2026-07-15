@@ -249,7 +249,7 @@ button.spaced-above { margin-top: 10px; }
 
 button.full-width { width: 100%; margin-right: 0; }
 
-#send-result { min-height: 16px; }
+#send-result { min-height: 16px; word-break: break-all; }
 .ok { color: var(--ok-text); }
 .err { color: var(--err-text); }
 

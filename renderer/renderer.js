@@ -468,10 +468,16 @@ let lastKnownBalanceWei = null;
 // wei per docs, since a tx is always exactly 152 bytes at 1 wei/byte).
 const MIN_FEE_WEI = 152n;
 
-function computeMaxSendableBrc() {
+function brcToWeiLocal(brcStr) {
+  const [whole, frac = ''] = brcStr.split('.');
+  const fracPadded = (frac + '00000000').slice(0, 8);
+  return BigInt(whole || '0') * COIN + BigInt(fracPadded || '0');
+}
+
+function computeMaxSendableBrc(feeWei) {
   if (lastKnownBalanceWei === null) return null;
   const balance = BigInt(lastKnownBalanceWei);
-  const max = balance - MIN_FEE_WEI;
+  const max = balance - feeWei;
   if (max <= 0n) return null;
   return weiToBrcDisplay(max.toString());
 }
@@ -526,6 +532,26 @@ window.brcWallet.onSyncProgress((progress) => {
 });
 
 // ---- Send (with confirmation, no innerHTML) ----
+
+document.getElementById('btn-send-all').addEventListener('click', () => {
+  const feeInput = el.sendFee.value.trim();
+  if (feeInput && !AMOUNT_RE.test(feeInput)) {
+    el.sendResult.textContent = 'Invalid fee (e.g. 0.00000152, max 8 decimals)';
+    el.sendResult.className = 'small-text err';
+    return;
+  }
+  const feeWei = feeInput ? brcToWeiLocal(feeInput) : MIN_FEE_WEI;
+  const max = computeMaxSendableBrc(feeWei);
+  if (max === null) {
+    el.sendResult.textContent = lastKnownBalanceWei === null
+      ? 'Sync first so the app knows your exact balance.'
+      : 'Balance is too low to cover this fee.';
+    el.sendResult.className = 'small-text err';
+    return;
+  }
+  el.sendAmount.value = max;
+  el.sendResult.textContent = '';
+});
 
 el.btnSend.addEventListener('click', async () => {
   const to = el.sendTo.value.trim().toLowerCase();
@@ -605,7 +631,7 @@ document.getElementById('btn-donate').addEventListener('click', async () => {
       h('button', {
         text: 'Donate all', className: 'small spaced-above',
         onClick: () => {
-          const max = computeMaxSendableBrc();
+          const max = computeMaxSendableBrc(MIN_FEE_WEI);
           if (max === null) {
             alert(lastKnownBalanceWei === null
               ? 'Sync first so the app knows your exact balance.'
