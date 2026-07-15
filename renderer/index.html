@@ -9,14 +9,21 @@
 <body>
 
   <div id="screen-empty" class="screen">
-    <h1>BRC Wallet</h1>
+    <h1 class="title-with-logo">
+      <img src="assets/logo.png" alt="BRC Wallet logo" class="brand-logo brand-logo-title" />
+      BRC Wallet
+    </h1>
     <p class="muted">No wallet loaded.</p>
     <button id="btn-create">Create a new wallet</button>
     <button id="btn-import">Import a wallet (JSON)</button>
+    <button id="btn-open-switcher-empty" class="small">Open a saved wallet…</button>
   </div>
 
   <div id="screen-wallet" class="screen hidden">
-    <h1>BRC Wallet</h1>
+    <h1 class="title-with-logo" id="wallet-title" title="Click to switch wallets">
+      <img src="assets/logo.png" alt="BRC Wallet logo" class="brand-logo brand-logo-title" />
+      <span id="wallet-title-text">BRC Wallet</span>
+    </h1>
 
     <div class="tab-nav">
       <button class="tab-btn active" data-tab="overview">Overview</button>
@@ -44,7 +51,7 @@
         <button id="btn-sync">Sync</button>
         <label class="checkbox-label">
           <input type="checkbox" id="auto-sync-toggle" checked />
-          Auto-sync every 60s
+          Auto-sync
         </label>
       </div>
 
@@ -69,7 +76,10 @@
 
     <div id="tab-history" class="tab-panel hidden">
       <div class="card">
-        <div class="label">Transaction history</div>
+        <div class="label-row">
+          <div class="label">Transaction history</div>
+          <button id="btn-export-csv" class="small">Export CSV</button>
+        </div>
         <div id="history-list" class="history-list">
           <div class="muted small-text">Sync to load history.</div>
         </div>
@@ -90,6 +100,31 @@
         <button id="btn-save-url" class="small">Save</button>
         <div class="muted small-text">If one server is down, pick another from the list above and save.</div>
       </div>
+
+      <div class="card">
+        <div class="label">Auto-sync interval</div>
+        <select id="auto-sync-interval-select">
+          <option value="30000">Every 30 seconds</option>
+          <option value="60000" selected>Every 60 seconds</option>
+          <option value="120000">Every 2 minutes</option>
+          <option value="300000">Every 5 minutes</option>
+        </select>
+      </div>
+
+      <div class="card">
+        <div class="label">Appearance</div>
+        <select id="theme-select">
+          <option value="dark">Dark</option>
+          <option value="light">Light</option>
+        </select>
+      </div>
+
+      <div class="card">
+        <div class="label">About</div>
+        <div class="small-text spaced-below" id="app-version">Version —</div>
+        <button id="btn-check-update" class="small">Check for updates</button>
+        <div class="small-text" id="update-status"></div>
+      </div>
     </div>
   </div>
 
@@ -101,6 +136,20 @@
       <div class="modal-buttons">
         <button id="modal-cancel" class="small">Cancel</button>
         <button id="modal-ok" class="small primary">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="switcher-overlay" class="hidden">
+    <div class="switcher-panel">
+      <div class="switcher-title">Your wallets</div>
+      <div id="switcher-list"></div>
+      <div class="switcher-buttons">
+        <button id="switcher-close" class="small">Close</button>
+        <div>
+          <button id="switcher-import" class="small">Import…</button>
+          <button id="switcher-create" class="small">New wallet</button>
+        </div>
       </div>
     </div>
   </div>

@@ -2,5 +2,6 @@ node_modules/
 dist/
 *.log
 
+# Never commit wallet exports, even accidental ones dropped in this folder
 browsercoin-wallet-*.json
 *.wallet.json

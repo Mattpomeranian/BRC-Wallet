@@ -20,7 +20,20 @@ const el = {
   qrImg: document.getElementById('qr-code'),
   btnToggleQr: document.getElementById('btn-toggle-qr'),
   historyList: document.getElementById('history-list'),
-  autoSyncToggle: document.getElementById('auto-sync-toggle')
+  autoSyncToggle: document.getElementById('auto-sync-toggle'),
+  autoSyncIntervalSelect: document.getElementById('auto-sync-interval-select'),
+  themeSelect: document.getElementById('theme-select'),
+  appVersion: document.getElementById('app-version'),
+  btnCheckUpdate: document.getElementById('btn-check-update'),
+  updateStatus: document.getElementById('update-status'),
+  btnExportCsv: document.getElementById('btn-export-csv'),
+  walletTitle: document.getElementById('wallet-title'),
+  switcherOverlay: document.getElementById('switcher-overlay'),
+  switcherList: document.getElementById('switcher-list'),
+  switcherClose: document.getElementById('switcher-close'),
+  switcherImport: document.getElementById('switcher-import'),
+  switcherCreate: document.getElementById('switcher-create'),
+  btnOpenSwitcherEmpty: document.getElementById('btn-open-switcher-empty')
 };
 
 // Same strict decimal format the main process enforces in tx.js's
@@ -43,8 +56,20 @@ function weiToBrcDisplay(weiStr) {
   return fracStr ? `${whole}.${fracStr}` : `${whole}`;
 }
 
+// Rounded 2-decimal display for the compact history list -- full precision
+// is still shown in the transaction detail view via weiToBrcDisplay above.
+function weiToBrcShort(weiStr) {
+  const w = BigInt(weiStr);
+  const whole = w / COIN;
+  const frac = (w % COIN) / (COIN / 100n); // hundredths
+  return `${whole}.${frac.toString().padStart(2, '0')}`;
+}
 function shortAddr(addr) {
   return addr ? `${addr.slice(0, 8)}…${addr.slice(-6)}` : '';
+}
+
+function formatDate(unixSeconds) {
+  return new Date(Number(unixSeconds) * 1000).toLocaleString();
 }
 
 // BRC donation address.
@@ -58,11 +83,13 @@ function h(tag, opts = {}, children = []) {
   const node = document.createElement(tag);
   if (opts.text !== undefined) node.textContent = opts.text;
   if (opts.className) node.className = opts.className;
+  if (opts.title) node.title = opts.title;
+  if (opts.onClick) node.addEventListener('click', opts.onClick);
   for (const child of children) node.appendChild(child);
   return node;
 }
 
-// ---- Generic modal (used for password prompts and confirmations) ----
+// ---- Generic modal (used for password prompts, confirmations, details) ----
 
 const modal = {
   overlay: document.getElementById('modal-overlay'),
@@ -75,7 +102,7 @@ const modal = {
 
 // `buildMessage` is a function returning either a string (safe, no markup)
 // or a DOM Node/array of Nodes built via h() above -- never raw HTML.
-function openModal({ title, buildMessage, showInput, inputType = 'password', okLabel = 'OK' }) {
+function openModal({ title, buildMessage, showInput, inputType = 'password', okLabel = 'OK', hideCancel = false }) {
   return new Promise((resolve) => {
     modal.title.textContent = title;
     modal.message.replaceChildren();
@@ -92,11 +119,13 @@ function openModal({ title, buildMessage, showInput, inputType = 'password', okL
     modal.input.type = inputType;
     modal.input.classList.toggle('hidden', !showInput);
     modal.ok.textContent = okLabel;
+    modal.cancel.classList.toggle('hidden', hideCancel);
     modal.overlay.classList.remove('hidden');
     if (showInput) setTimeout(() => modal.input.focus(), 0);
 
     function cleanup(result) {
       modal.overlay.classList.add('hidden');
+      modal.cancel.classList.remove('hidden');
       modal.ok.removeEventListener('click', onOk);
       modal.cancel.removeEventListener('click', onCancel);
       modal.input.removeEventListener('keydown', onKeydown);
@@ -122,6 +151,10 @@ function confirmAction(title, buildMessage, okLabel) {
   return openModal({ title, buildMessage, showInput: false, okLabel });
 }
 
+function showInfo(title, buildMessage) {
+  return openModal({ title, buildMessage, showInput: false, okLabel: 'Close', hideCancel: true });
+}
+
 // ---- Screens ----
 
 function showWalletScreen(address) {
@@ -137,6 +170,11 @@ function showWalletScreen(address) {
   resetToOverviewTab();
   refreshHistory();
   startAutoSync();
+}
+
+function showEmptyScreen() {
+  screenWallet.classList.add('hidden');
+  screenEmpty.classList.remove('hidden');
 }
 
 function resetToOverviewTab() {
@@ -155,6 +193,14 @@ async function refreshSettings() {
   const current = settings.apiBaseUrl || 'https://api1.browsercoin.org';
   el.apiUrl.value = current;
   el.apiUrlSelect.value = KNOWN_HELPER_SERVERS.includes(current) ? current : 'custom';
+  el.autoSyncIntervalSelect.value = String(settings.autoSyncIntervalMs || 60000);
+  autoSyncIntervalMs = settings.autoSyncIntervalMs || 60000;
+  applyTheme(settings.theme || 'dark');
+  el.themeSelect.value = settings.theme || 'dark';
+}
+
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
 }
 
 async function refreshHistory() {
@@ -177,13 +223,13 @@ function renderHistory(history) {
     const counterpartyText = entry.counterparty
       ? (entry.type === 'sent' ? `to ${shortAddr(entry.counterparty)}` : `from ${shortAddr(entry.counterparty)}`)
       : 'block reward';
-    return h('div', { className: 'history-entry' }, [
-      h('div', {}, [
+    return h('div', { className: 'history-entry', onClick: () => showTransactionDetail(entry) }, [
+      h('div', { className: 'hleft' }, [
         h('span', { text: label, className: `htype ${entry.type}` }),
         h('span', { text: counterpartyText, className: 'hmeta' })
       ]),
-      h('div', {}, [
-        h('span', { text: `${sign}${weiToBrcDisplay(entry.amountWei)} BRC`, className: 'hamount' }),
+      h('div', { className: 'hright' }, [
+        h('span', { text: `${sign}${weiToBrcShort(entry.amountWei)} BRC`, className: 'hamount' }),
         h('div', { text: `block ${entry.height}`, className: 'hmeta' })
       ])
     ]);
@@ -191,9 +237,36 @@ function renderHistory(history) {
   el.historyList.replaceChildren(...entries);
 }
 
+function detailRow(label, value, copyable) {
+  const valueNode = h('div', { text: value, className: 'dvalue' });
+  const children = [h('div', { text: label, className: 'dlabel' }), valueNode];
+  if (copyable) {
+    children.push(h('button', {
+      text: 'Copy', className: 'small',
+      onClick: () => navigator.clipboard.writeText(value)
+    }));
+  }
+  return h('div', { className: 'detail-row' }, children);
+}
+
+function showTransactionDetail(entry) {
+  const label = entry.type === 'sent' ? 'Sent' : entry.type === 'received' ? 'Received' : 'Mined';
+  const rows = [
+    detailRow('Type', label),
+    detailRow('Amount', `${weiToBrcDisplay(entry.amountWei)} BRC`)
+  ];
+  if (entry.feeWei && entry.feeWei !== '0') rows.push(detailRow('Fee', `${weiToBrcDisplay(entry.feeWei)} BRC`));
+  if (entry.counterparty) rows.push(detailRow(entry.type === 'sent' ? 'To' : 'From', entry.counterparty, true));
+  rows.push(detailRow('Block height', String(entry.height)));
+  rows.push(detailRow('Date', formatDate(entry.timestamp)));
+  if (entry.txid) rows.push(detailRow('Transaction ID', entry.txid, true));
+  showInfo('Transaction detail', () => rows);
+}
+
 async function init() {
   await refreshSettings();
   setupTabs();
+  refreshAppVersion();
   try {
     const res = await window.brcWallet.tryAutoLoad();
     if (res && res.needsPassword) {
@@ -220,7 +293,7 @@ function setupTabs() {
   });
 }
 
-// ---- Wallet creation / import / export / lock ----
+// ---- Wallet creation / import / export ----
 
 document.getElementById('btn-create').addEventListener('click', async () => {
   const res = await window.brcWallet.createWallet();
@@ -292,11 +365,101 @@ document.getElementById('btn-toggle-qr').addEventListener('click', async () => {
   }
 });
 
+// ---- Wallet switcher ----
+
+async function openSwitcher() {
+  await renderSwitcher();
+  el.switcherOverlay.classList.remove('hidden');
+}
+
+function closeSwitcher() {
+  el.switcherOverlay.classList.add('hidden');
+}
+
+async function renderSwitcher() {
+  const [wallets, current] = await Promise.all([
+    window.brcWallet.listSavedWallets(),
+    window.brcWallet.currentWallet()
+  ]);
+  const currentAddr = current ? current.address : null;
+
+  if (wallets.length === 0) {
+    el.switcherList.replaceChildren(
+      h('div', { text: 'No saved wallets yet. Import one or export your current wallet to see it here next time.', className: 'muted small-text' })
+    );
+    return;
+  }
+
+  const rows = wallets.map((w) => {
+    const info = h('div', { className: 'wallet-row-info', onClick: () => selectSavedWallet(w) }, [
+      h('div', { text: w.label, className: 'wallet-label' }),
+      h('div', { text: shortAddr(w.address), className: 'wallet-row-addr' })
+    ]);
+    const renameBtn = h('button', {
+      text: '\u270E', className: 'small', title: 'Rename',
+      onClick: (e) => { e.stopPropagation(); renameSavedWallet(w); }
+    });
+    const removeBtn = h('button', {
+      text: '\u2715', className: 'small', title: 'Remove from this list (does not delete the file)',
+      onClick: async (e) => {
+        e.stopPropagation();
+        await window.brcWallet.removeSavedWallet(w.address);
+        renderSwitcher();
+      }
+    });
+    return h('div', { className: `wallet-row${w.address === currentAddr ? ' current' : ''}` }, [info, renameBtn, removeBtn]);
+  });
+  el.switcherList.replaceChildren(...rows);
+}
+
+async function selectSavedWallet(w) {
+  try {
+    const res = await window.brcWallet.switchWallet(w.filePath);
+    if (res && res.needsPassword) {
+      closeSwitcher();
+      await handleEncryptedUnlock();
+      return;
+    }
+    if (res) {
+      closeSwitcher();
+      showWalletScreen(res.address);
+    }
+  } catch (e) {
+    alert(`Could not open that wallet: ${e.message}`);
+  }
+}
+
+async function renameSavedWallet(w) {
+  const newLabel = await openModal({
+    title: 'Rename wallet',
+    buildMessage: () => `Current name: ${w.label}`,
+    showInput: true,
+    inputType: 'text'
+  });
+  if (newLabel === null || newLabel.trim() === '') return;
+  try {
+    await window.brcWallet.renameSavedWallet(w.address, newLabel.trim());
+    renderSwitcher();
+  } catch (e) {
+    alert(e.message);
+  }
+}
+
+el.walletTitle.addEventListener('click', openSwitcher);
+el.btnOpenSwitcherEmpty.addEventListener('click', openSwitcher);
+el.switcherClose.addEventListener('click', closeSwitcher);
+el.switcherImport.addEventListener('click', async () => {
+  closeSwitcher();
+  document.getElementById('btn-import').click();
+});
+el.switcherCreate.addEventListener('click', async () => {
+  closeSwitcher();
+  document.getElementById('btn-create').click();
+});
+
 // ---- Sync ----
 
-const AUTO_SYNC_INTERVAL_MS = 60000; // matches the ~150s target block time closely
-                                       // enough without hammering a shared public
-                                       // rate-limited server.
+let autoSyncIntervalMs = 60000;
 let autoSyncTimer = null;
 
 async function runSync() {
@@ -318,7 +481,8 @@ async function runSync() {
 function startAutoSync() {
   stopAutoSync();
   if (el.autoSyncToggle.checked) {
-    autoSyncTimer = setInterval(runSync, AUTO_SYNC_INTERVAL_MS);
+    runSync(); // sync right away instead of waiting for the first interval tick
+    autoSyncTimer = setInterval(runSync, autoSyncIntervalMs);
   }
 }
 
@@ -330,6 +494,17 @@ function stopAutoSync() {
 document.getElementById('btn-sync').addEventListener('click', runSync);
 
 el.autoSyncToggle.addEventListener('change', startAutoSync);
+
+el.autoSyncIntervalSelect.addEventListener('change', async () => {
+  const ms = Number(el.autoSyncIntervalSelect.value);
+  try {
+    await window.brcWallet.setAutoSyncInterval(ms);
+    autoSyncIntervalMs = ms;
+    startAutoSync(); // restart with the new interval
+  } catch (e) {
+    alert(e.message);
+  }
+});
 
 window.brcWallet.onSyncProgress((progress) => {
   el.syncStatus.textContent = `Syncing: block ${progress.height} / ${progress.target}`;
@@ -457,6 +632,19 @@ document.getElementById('btn-donate').addEventListener('click', async () => {
   }
 });
 
+// ---- CSV export ----
+
+el.btnExportCsv.addEventListener('click', async () => {
+  try {
+    const filePath = await window.brcWallet.exportHistoryCsv();
+    if (filePath) alert(`History exported to:\n${filePath}`);
+  } catch (e) {
+    alert(`Export failed: ${e.message}`);
+  }
+});
+
+// ---- Settings: helper server ----
+
 el.apiUrlSelect.addEventListener('change', () => {
   if (el.apiUrlSelect.value === 'custom') {
     el.apiUrl.focus();
@@ -473,6 +661,54 @@ document.getElementById('btn-save-url').addEventListener('click', async () => {
     alert('Helper server saved.');
   } catch (e) {
     alert(e.message);
+  }
+});
+
+// ---- Settings: theme ----
+
+el.themeSelect.addEventListener('change', async () => {
+  const theme = el.themeSelect.value;
+  applyTheme(theme); // instant feedback
+  try {
+    await window.brcWallet.setTheme(theme);
+  } catch (e) {
+    alert(e.message);
+  }
+});
+
+// ---- Settings: version / updates ----
+
+async function refreshAppVersion() {
+  const version = await window.brcWallet.getAppVersion();
+  el.appVersion.textContent = `Version ${version}`;
+}
+
+el.btnCheckUpdate.addEventListener('click', async () => {
+  el.btnCheckUpdate.disabled = true;
+  el.updateStatus.textContent = 'Checking…';
+  el.updateStatus.className = 'small-text';
+  try {
+    const info = await window.brcWallet.checkUpdate();
+    if (info.error) {
+      el.updateStatus.textContent = `Could not check for updates: ${info.error}`;
+      el.updateStatus.className = 'small-text err';
+    } else if (info.hasUpdate) {
+      el.updateStatus.replaceChildren();
+      const link = h('span', { text: `Version ${info.latestVersion} is available — Download`, className: 'update-link' });
+      link.addEventListener('click', () => {
+        window.brcWallet.openExternal(info.releaseUrl).catch((e) => alert(e.message));
+      });
+      el.updateStatus.appendChild(link);
+      el.updateStatus.className = 'small-text';
+    } else {
+      el.updateStatus.textContent = info.message || 'You\u2019re up to date.';
+      el.updateStatus.className = 'small-text ok';
+    }
+  } catch (e) {
+    el.updateStatus.textContent = `Could not check for updates: ${e.message}`;
+    el.updateStatus.className = 'small-text err';
+  } finally {
+    el.btnCheckUpdate.disabled = false;
   }
 });
 

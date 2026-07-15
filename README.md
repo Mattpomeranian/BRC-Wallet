@@ -22,13 +22,16 @@ Your private key never leaves your machine and is never sent anywhere. This app 
 ## Features
 
 - **Create or import** a wallet — fully compatible with the standard BrowserCoin wallet JSON format
+- **Multiple wallets** — click the app title to switch between saved wallets or rename them
 - **Encrypted export** — optionally password-protect the exported file (scrypt + AES-256-GCM)
 - **Send BRC** with a clear confirmation screen before anything is submitted
-- **Transaction history** — sent, received, and mined entries, synced from the chain
+- **Transaction history** — sent, received, and mined entries, synced from the chain; click any entry for full details, or export the whole history to CSV
 - **Address QR code** for easy sharing
-- **Auto-sync** every 60 seconds, plus manual sync on demand
+- **Auto-sync** on a configurable interval (30s to 5min), plus manual sync on demand
 - **Multiple helper servers** — switch instantly from a dropdown if one is down
 - **Auto-load at startup** — remembers your last wallet; encrypted wallets still always ask for the password
+- **Light and dark theme**
+- **Update check** against this repo's GitHub releases
 
 ## Getting started
 
@@ -49,9 +52,13 @@ That's it — the app opens and you can create a new wallet or import an existin
 
 **Send** — enter a recipient address and amount. You'll see a confirmation screen with the full details before anything is sent. BrowserCoin addresses have no checksum, so double-check the address carefully — a single wrong character sends funds to a different (or nonexistent) address, unrecoverably.
 
-**History** — a running log of your sent, received, and mined transactions, updated on every sync.
+**History** — a running log of your sent, received, and mined transactions, updated on every sync. Click any entry to see its full details (TXID, addresses, exact amounts) with copy buttons, or use **Export CSV** to save the whole history to a spreadsheet.
 
-**Settings** — pick a helper server from the dropdown (or enter a custom one). If a server is down, just switch to another and hit Save.
+**Settings** — pick a helper server from the dropdown (or enter a custom one). If a server is down, just switch to another and hit Save. Also: auto-sync interval, light/dark theme, and a manual update check against this repo's GitHub releases.
+
+### Switching between wallets
+
+Click the app title ("BRC Wallet") at the top to open the wallet switcher. It lists every wallet you've imported or exported so far — click one to switch to it (encrypted ones still ask for their password), rename it with the pencil icon, or remove it from the list (this only forgets it here; it never touches or deletes the actual file).
 
 ### Backing up your wallet
 
@@ -64,6 +71,10 @@ npm run dist
 ```
 
 Produces a Windows installer (`.exe`) in `dist/`. (Requires the `win` build target configured in `package.json`; adjust for macOS/Linux if needed.)
+
+### Publishing an update
+
+The in-app **Check for updates** button compares your version against this repo's [GitHub Releases](https://github.com/Mattpomeranian/BRC-Wallet/releases) — it won't find anything until a release actually exists. To publish one: bump `version` in `package.json`, run `npm run dist`, then create a GitHub Release with a matching tag (e.g. `v0.5.0`) and attach the built installer from `dist/`. The app only checks and links to the release page — it doesn't download or install anything automatically.
 
 ## Security notes
 
