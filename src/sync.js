@@ -15,8 +15,19 @@
 // helper that tries to splice in an inconsistent or out-of-order block gets
 // caught here and sync aborts with a clear error instead of silently
 // producing a wrong balance. This is NOT a full validating node -- PoW and
-// Merkle roots are still unchecked -- but it closes the cheapest and
-// easiest attack a misbehaving helper could otherwise pull off.
+// Merkle roots are still unchecked -- but combined with the genesis pin
+// below it closes the cheapest and easiest attacks a misbehaving helper
+// could otherwise pull off, including serving an entirely fabricated
+// alternate chain from height 0 (internally consistent but not the real
+// BrowserCoin network).
+//
+// Genesis pin: per docs/developers.md §4, the genesis block is deterministic
+// (height 0, all-zero hashes/miner, timestamp 1700000000, difficulty
+// 0x20400000, no txs) -- "Independent verifiers should treat any chain
+// whose height-0 block differs from this as a different network." We verify
+// block 0's hash against this known-good value before trusting anything a
+// helper reports, so a malicious/MITM'd helper can no longer serve a fake
+// chain with a fabricated balance or incoming transactions.
 
 const { getTip, getBlocks } = require('./api');
 const { decodeBlock, blockReward } = require('./block');
@@ -25,14 +36,46 @@ const BATCH_SIZE = 200;
 const DELAY_BETWEEN_BATCHES_MS = 250;
 const MAX_HISTORY_ENTRIES = 500; // keep the cache file bounded for long-lived wallets
 
+// sha256 of the real 148-byte genesis header, verified against block 0 as
+// served over HTTPS by the default helper (api1.browsercoin.org) on
+// 2026-07-15. Note: docs/developers.md §4 states different genesis values
+// (timestamp 1700000000, difficulty 0x20400000) than what the live network
+// actually serves (timestamp 1779700000, difficulty 0x20020000) -- the
+// network was evidently reset/relaunched since that doc was last updated,
+// consistent with its own "v0.2, not stable, code is the source of truth"
+// disclaimer. This hash reflects the real network, not the stale doc.
+const GENESIS_BLOCK_HASH = '9fe010e8bdb735a5f7afacec8f5b6810550a4b25e73ea69d0159c44adf10ff74';
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function verifyGenesis(baseUrl) {
+  const blocksHex = await getBlocks(baseUrl, 0, 1);
+  if (blocksHex.length === 0) {
+    throw new Error('Helper server did not return a genesis block (height 0). Aborting sync.');
+  }
+  const genesis = decodeBlock(blocksHex[0]);
+  if (genesis.height !== 0) {
+    throw new Error(`Expected genesis at height 0, got height ${genesis.height}. Aborting sync.`);
+  }
+  if (genesis.blockHash !== GENESIS_BLOCK_HASH) {
+    throw new Error(
+      'Genesis block hash mismatch -- the helper server is not serving the real BrowserCoin ' +
+      'network (or is malicious/compromised). Aborting sync. Try a different helper server.'
+    );
+  }
 }
 
 async function syncAddress(baseUrl, address, cachedState, onProgress) {
   const state = cachedState
     ? { ...cachedState, balanceWei: BigInt(cachedState.balanceWei), history: cachedState.history || [] }
-    : { syncedHeight: -1, balanceWei: 0n, nonce: 0, lastBlockHash: null, history: [] };
+    : { syncedHeight: -1, balanceWei: 0n, nonce: 0, lastBlockHash: null, history: [], genesisVerified: false };
+
+  if (!state.genesisVerified) {
+    await verifyGenesis(baseUrl);
+    state.genesisVerified = true;
+  }
 
   const tip = await getTip(baseUrl);
   const targetHeight = tip.height;
@@ -82,7 +125,8 @@ async function syncAddress(baseUrl, address, cachedState, onProgress) {
     nonce: state.nonce,
     lastBlockHash: state.lastBlockHash,
     tipHeight: targetHeight,
-    history: state.history
+    history: state.history,
+    genesisVerified: state.genesisVerified
   };
 }
 
