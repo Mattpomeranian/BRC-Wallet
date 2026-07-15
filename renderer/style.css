@@ -95,6 +95,15 @@ h1 {
   height: 24px;
 }
 
+.sticky-header {
+  position: sticky;
+  top: 0;
+  margin: -24px -24px 0;
+  padding: 24px 24px 0;
+  background: var(--bg);
+  z-index: 20;
+}
+
 .tab-nav {
   display: flex;
   gap: 2px;
