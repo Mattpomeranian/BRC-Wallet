@@ -234,6 +234,27 @@ h1 {
   display: none;
 }
 
+#content-footer.hidden {
+  display: none;
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.pagination.hidden {
+  display: none;
+}
+
+.pagination button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
 .hidden { display: none; }
 
 .muted { color: var(--text-muted); font-size: 13px; }

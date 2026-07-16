@@ -75,15 +75,6 @@
             Auto-sync
           </label>
         </div>
-
-        <div class="donate">
-          <button id="btn-donate" class="small">☕ Support this project</button>
-          <div class="small-text muted" id="premium-progress"></div>
-        </div>
-
-        <div class="owl-watermark" aria-hidden="true">
-          <img src="assets/owl-watermark.png" alt="" width="96" height="96" />
-        </div>
       </div>
 
       <div id="tab-send" class="tab-panel hidden">
@@ -113,6 +104,7 @@
           <div id="history-list" class="history-list">
             <div class="muted small-text">Sync to load history.</div>
           </div>
+          <div id="history-pagination" class="pagination hidden"></div>
         </div>
       </div>
 
@@ -124,6 +116,7 @@
         <div id="addressbook-unlocked" class="card hidden">
           <div class="label">Address book</div>
           <div id="addressbook-list"></div>
+          <div id="addressbook-pagination" class="pagination hidden"></div>
           <label for="ab-name">Name</label>
           <input id="ab-name" type="text" placeholder="e.g. Alice" />
           <label for="ab-address">Address</label>
@@ -211,6 +204,17 @@
           <div class="small-text spaced-below" id="app-version">Version —</div>
           <button id="btn-check-update" class="small">Check for updates</button>
           <div class="small-text" id="update-status"></div>
+        </div>
+      </div>
+
+      <div id="content-footer">
+        <div class="donate">
+          <button id="btn-donate" class="small">☕ Support this project</button>
+          <div class="small-text muted" id="premium-progress"></div>
+        </div>
+
+        <div class="owl-watermark" aria-hidden="true">
+          <img src="assets/owl-watermark.png" alt="" width="96" height="96" />
         </div>
       </div>
     </div>

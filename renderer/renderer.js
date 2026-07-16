@@ -20,6 +20,7 @@ const el = {
   qrImg: document.getElementById('qr-code'),
   btnToggleQr: document.getElementById('btn-toggle-qr'),
   historyList: document.getElementById('history-list'),
+  historyPagination: document.getElementById('history-pagination'),
   autoSyncToggle: document.getElementById('auto-sync-toggle'),
   autoSyncIntervalSelect: document.getElementById('auto-sync-interval-select'),
   themeSelect: document.getElementById('theme-select'),
@@ -42,6 +43,8 @@ const el = {
   addressbookLocked: document.getElementById('addressbook-locked'),
   addressbookUnlocked: document.getElementById('addressbook-unlocked'),
   addressbookList: document.getElementById('addressbook-list'),
+  addressbookPagination: document.getElementById('addressbook-pagination'),
+  contentFooter: document.getElementById('content-footer'),
   abName: document.getElementById('ab-name'),
   abAddress: document.getElementById('ab-address'),
   btnAbAdd: document.getElementById('btn-ab-add'),
@@ -109,6 +112,53 @@ function h(tag, opts = {}, children = []) {
   if (opts.onClick) node.addEventListener('click', opts.onClick);
   for (const child of children) node.appendChild(child);
   return node;
+}
+
+// ---- Generic pagination (used by History and Address book lists) ----
+
+const PAGE_SIZE = 15;
+
+// Renders a page's worth of items via renderItem, plus Prev/Next controls
+// into paginationEl. `page` is 0-indexed and clamped to a valid range.
+function renderPaged(items, page, listEl, paginationEl, renderItem, emptyText) {
+  if (!items || items.length === 0) {
+    listEl.replaceChildren(h('div', { text: emptyText, className: 'muted small-text' }));
+    paginationEl.replaceChildren();
+    paginationEl.classList.add('hidden');
+    return 0;
+  }
+
+  const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
+  const clampedPage = Math.min(Math.max(page, 0), totalPages - 1);
+  const start = clampedPage * PAGE_SIZE;
+  const pageItems = items.slice(start, start + PAGE_SIZE);
+  listEl.replaceChildren(...pageItems.map(renderItem));
+
+  if (totalPages <= 1) {
+    paginationEl.replaceChildren();
+    paginationEl.classList.add('hidden');
+    return clampedPage;
+  }
+
+  const prevBtn = h('button', {
+    text: '\u2190 Previous',
+    className: 'small',
+    onClick: () => paginationEl.dispatchEvent(new CustomEvent('pagechange', { detail: clampedPage - 1 }))
+  });
+  if (clampedPage === 0) prevBtn.disabled = true;
+
+  const nextBtn = h('button', {
+    text: 'Next \u2192',
+    className: 'small',
+    onClick: () => paginationEl.dispatchEvent(new CustomEvent('pagechange', { detail: clampedPage + 1 }))
+  });
+  if (clampedPage >= totalPages - 1) nextBtn.disabled = true;
+
+  const pageLabel = h('span', { text: `Page ${clampedPage + 1} of ${totalPages}`, className: 'muted small-text' });
+
+  paginationEl.replaceChildren(prevBtn, pageLabel, nextBtn);
+  paginationEl.classList.remove('hidden');
+  return clampedPage;
 }
 
 // ---- Generic modal (used for password prompts, confirmations, details) ----
@@ -318,31 +368,53 @@ async function refreshHistory() {
   }
 }
 
+let historyPage = 0;
+let currentHistoryEntries = [];
+let historyIsFiltered = false;
+
 function renderHistory(history, isFiltered = false) {
   if (!isFiltered) lastRenderedHistory = history || [];
-  if (!history || history.length === 0) {
-    el.historyList.replaceChildren(h('div', { text: isFiltered ? 'No matching transactions.' : 'No transactions yet.', className: 'muted small-text' }));
-    return;
-  }
-  const entries = [...history].reverse().map((entry) => {
-    const label = entry.type === 'sent' ? 'Sent' : entry.type === 'received' ? 'Received' : 'Mined';
-    const sign = entry.type === 'sent' ? '-' : '+';
-    const counterpartyText = entry.counterparty
-      ? (entry.type === 'sent' ? `to ${shortAddr(entry.counterparty)}` : `from ${shortAddr(entry.counterparty)}`)
-      : 'block reward';
-    return h('div', { className: 'history-entry', onClick: () => showTransactionDetail(entry) }, [
-      h('div', { className: 'hleft' }, [
-        h('span', { text: label, className: `htype ${entry.type}` }),
-        h('span', { text: counterpartyText, className: 'hmeta' })
-      ]),
-      h('div', { className: 'hright' }, [
-        h('span', { text: `${sign}${weiToBrcShort(entry.amountWei)} BRC`, className: 'hamount' }),
-        h('div', { text: `block ${entry.height}`, className: 'hmeta' })
-      ])
-    ]);
-  });
-  el.historyList.replaceChildren(...entries);
+  currentHistoryEntries = history ? [...history].reverse() : [];
+  historyIsFiltered = isFiltered;
+  historyPage = 0;
+  drawHistoryPage();
 }
+
+function buildHistoryEntryNode(entry) {
+  const label = entry.type === 'sent' ? 'Sent' : entry.type === 'received' ? 'Received' : 'Mined';
+  const sign = entry.type === 'sent' ? '-' : '+';
+  const counterpartyText = entry.counterparty
+    ? (entry.type === 'sent' ? `to ${shortAddr(entry.counterparty)}` : `from ${shortAddr(entry.counterparty)}`)
+    : 'block reward';
+  return h('div', { className: 'history-entry', onClick: () => showTransactionDetail(entry) }, [
+    h('div', { className: 'hleft' }, [
+      h('span', { text: label, className: `htype ${entry.type}` }),
+      h('span', { text: counterpartyText, className: 'hmeta' })
+    ]),
+    h('div', { className: 'hright' }, [
+      h('span', { text: `${sign}${weiToBrcShort(entry.amountWei)} BRC`, className: 'hamount' }),
+      h('div', { text: `block ${entry.height}`, className: 'hmeta' })
+    ])
+  ]);
+}
+
+function drawHistoryPage() {
+  historyPage = renderPaged(
+    currentHistoryEntries,
+    historyPage,
+    el.historyList,
+    el.historyPagination,
+    buildHistoryEntryNode,
+    historyIsFiltered ? 'No matching transactions.' : 'No transactions yet.'
+  );
+}
+
+el.historyPagination.addEventListener('pagechange', (e) => {
+  historyPage = e.detail;
+  drawHistoryPage();
+});
+
+
 
 function detailRow(label, value, copyable) {
   const valueNode = h('div', { text: value, className: 'dvalue' });
@@ -395,6 +467,7 @@ function setupTabs() {
       document.querySelectorAll('.tab-panel').forEach((panel) => {
         panel.classList.toggle('hidden', panel.id !== `tab-${target}`);
       });
+      el.contentFooter.classList.toggle('hidden', target === 'settings');
       collapseSidebar();
       if (target === 'history') refreshHistory();
       if (target === 'addressbook') refreshAddressBook();
@@ -435,45 +508,63 @@ async function refreshAddressBook() {
   }
 }
 
-function renderAddressBook(list) {
-  if (!list || list.length === 0) {
-    el.addressbookList.replaceChildren(h('div', { text: 'No saved addresses yet.', className: 'muted small-text' }));
-    return;
-  }
-  const rows = list.map((entry) => {
-    const info = h('div', {}, [
-      h('div', { text: entry.name, className: 'ab-name' }),
-      h('div', { text: shortAddr(entry.address), className: 'ab-addr' })
-    ]);
-    const renameBtn = h('button', {
-      text: '\u270E', className: 'small', title: 'Rename',
-      onClick: async () => {
-        const newName = await openModal({
-          title: 'Rename entry',
-          buildMessage: () => `Current name: ${entry.name}`,
-          showInput: true,
-          inputType: 'text'
-        });
-        if (newName === null || newName.trim() === '') return;
-        try {
-          const updated = await window.brcWallet.renameAddressBookEntry(entry.address, newName.trim());
-          renderAddressBook(updated);
-        } catch (e) {
-          alert(e.message);
-        }
-      }
-    });
-    const removeBtn = h('button', {
-      text: '\u2715', className: 'small', title: 'Remove',
-      onClick: async () => {
-        const updated = await window.brcWallet.removeAddressBookEntry(entry.address);
-        renderAddressBook(updated);
-      }
-    });
-    return h('div', { className: 'ab-row' }, [info, renameBtn, removeBtn]);
-  });
-  el.addressbookList.replaceChildren(...rows);
+let addressbookPage = 0;
+let currentAddressbookEntries = [];
+
+function renderAddressBook(list, resetPage = true) {
+  currentAddressbookEntries = list || [];
+  if (resetPage) addressbookPage = 0;
+  drawAddressbookPage();
 }
+
+function buildAddressbookRowNode(entry) {
+  const info = h('div', {}, [
+    h('div', { text: entry.name, className: 'ab-name' }),
+    h('div', { text: shortAddr(entry.address), className: 'ab-addr' })
+  ]);
+  const renameBtn = h('button', {
+    text: '\u270E', className: 'small', title: 'Rename',
+    onClick: async () => {
+      const newName = await openModal({
+        title: 'Rename entry',
+        buildMessage: () => `Current name: ${entry.name}`,
+        showInput: true,
+        inputType: 'text'
+      });
+      if (newName === null || newName.trim() === '') return;
+      try {
+        const updated = await window.brcWallet.renameAddressBookEntry(entry.address, newName.trim());
+        renderAddressBook(updated, false);
+      } catch (e) {
+        alert(e.message);
+      }
+    }
+  });
+  const removeBtn = h('button', {
+    text: '\u2715', className: 'small', title: 'Remove',
+    onClick: async () => {
+      const updated = await window.brcWallet.removeAddressBookEntry(entry.address);
+      renderAddressBook(updated, false);
+    }
+  });
+  return h('div', { className: 'ab-row' }, [info, renameBtn, removeBtn]);
+}
+
+function drawAddressbookPage() {
+  addressbookPage = renderPaged(
+    currentAddressbookEntries,
+    addressbookPage,
+    el.addressbookList,
+    el.addressbookPagination,
+    buildAddressbookRowNode,
+    'No saved addresses yet.'
+  );
+}
+
+el.addressbookPagination.addEventListener('pagechange', (e) => {
+  addressbookPage = e.detail;
+  drawAddressbookPage();
+});
 
 el.btnAbAdd.addEventListener('click', async () => {
   const name = el.abName.value.trim();
@@ -1003,7 +1094,7 @@ document.getElementById('btn-save-url').addEventListener('click', async () => {
     const saved = await window.brcWallet.setApiBaseUrl(el.apiUrl.value.trim());
     el.apiUrl.value = saved.apiBaseUrl;
     el.apiUrlSelect.value = KNOWN_HELPER_SERVERS.includes(saved.apiBaseUrl) ? saved.apiBaseUrl : 'custom';
-    alert('Helper server saved.');
+    alert(saved.insecureWarning || 'Helper server saved.');
   } catch (e) {
     alert(e.message);
   }
